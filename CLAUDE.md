@@ -1,7 +1,7 @@
 # MedSoftware — EHR Selection Workbench
 
 ## Stack
-- Repo: github.com/papajo/ehr-selection-workbenc (branch `main`).
+- Repo: github.com/papajo/ehr-selection-workbench (branch `main`).
 - Single self-contained HTML page (`ehr-workbench.html`), vanilla JS, no build.
 - Only external script: SheetJS 0.18.5 from cdnjs (fee-schedule file parsing, in-browser).
 - State in `localStorage` key `ehr-workbench-v1`; Save/load tab moves it as JSON.
