@@ -1,0 +1,1150 @@
+<title>EHR Selection Workbench</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working column; sticky tab bar; decision summary first, detail tabs behind it. */
+:root{
+  --bg:#f3f6f6; --surface:#ffffff; --sunk:#e9efef; --ink:#13242b; --muted:#566a71; --line:#d5dfe0;
+  --accent:#12707d; --accent-ink:#ffffff; --accent-soft:#d8eef0;
+  --ok:#2c7a4b; --ok-soft:#dcefe3; --warn:#9a640f; --warn-soft:#f6ead2; --bad:#b0383a; --bad-soft:#f6dcdc;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Public Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0d1518; --surface:#142026; --sunk:#0f1a1e; --ink:#e2ecec; --muted:#93a8ad; --line:#26383e;
+  --accent:#5cc0cc; --accent-ink:#06262b; --accent-soft:#16363b;
+  --ok:#6fcf97; --ok-soft:#173326; --warn:#e3b260; --warn-soft:#3a2d14; --bad:#f08486; --bad-soft:#3d1c1d; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0d1518; --surface:#142026; --sunk:#0f1a1e; --ink:#e2ecec; --muted:#93a8ad; --line:#26383e;
+  --accent:#5cc0cc; --accent-ink:#06262b; --accent-soft:#16363b;
+  --ok:#6fcf97; --ok-soft:#173326; --warn:#e3b260; --warn-soft:#3a2d14; --bad:#f08486; --bad-soft:#3d1c1d; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h1{font-size:1.6rem;font-weight:700}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.small{font-size:.85rem}
+.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.top{background:var(--surface);border-bottom:1px solid var(--line)}
+header.top .wrap{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding-block:18px 14px}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 12px;border-radius:8px;font-weight:600;font-size:.88rem}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.sample-flag{display:inline-flex;gap:6px;align-items:center;background:var(--warn-soft);color:var(--warn);font-weight:600;font-size:.78rem;padding:2px 9px;border-radius:999px;width:max-content}
+
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+nav.tabs .wrap{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{border:0;background:none;padding:12px 14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+main{padding-block:24px 64px}
+section.view{display:flex;flex-direction:column;gap:22px}
+
+.verdict{display:grid;gap:6px;padding:18px 20px;background:var(--accent-soft);border-radius:12px}
+.verdict p{margin:0;max-width:72ch}
+.verdict .lead{font-family:var(--display);font-size:1.3rem;font-weight:700;line-height:1.25}
+
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.vcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.vcard.out{opacity:.82}
+.vhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.rankno{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.big{font-family:var(--mono);font-size:2rem;font-weight:500;line-height:1}
+.chip{display:inline-block;font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.neutral{background:var(--sunk);color:var(--muted)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:.88rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0;text-align:right}
+.bar{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.bar.c>i{background:var(--muted)}
+.why{margin:0;padding-left:18px;font-size:.86rem;color:var(--muted)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.two{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px}
+@media (max-width:860px){.two{grid-template-columns:1fr}}
+.slider{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.slider input{flex:1;min-width:160px;accent-color:var(--accent)}
+.qlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.qlist li{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:baseline}
+.sev{width:8px;height:8px;border-radius:50%;background:var(--warn);display:inline-block}
+.sev.must{background:var(--bad)}
+svg text{fill:var(--muted);font-family:var(--mono);font-size:11px}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{position:sticky;top:0;background:var(--sunk);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap}
+tr.grp td{background:var(--sunk);font-family:var(--display);font-weight:700;font-size:.95rem}
+td.crit{min-width:240px;max-width:380px}
+td.crit .hint{color:var(--muted);font-size:.8rem;margin-top:2px}
+td.vc{white-space:nowrap}
+td.vc select{padding:3px 4px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+td.vc .sc{width:3.4em} td.vc .ev{width:5.6em;font-size:.8rem;color:var(--muted)}
+td.vc.fail{background:var(--bad-soft)}
+td.vc.match{background:var(--ok-soft)}
+.cite{font-family:var(--mono);font-size:.74rem;color:var(--accent);margin-top:3px}
+.fees input[type=number],.fees input[type=text]{width:100%;min-width:72px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-family:var(--mono)}
+.fees input.code{min-width:84px;text-transform:uppercase}
+.fees select{padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.fees td.r{text-align:right;white-space:nowrap}
+.drop{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.drop label.btn{display:inline-block}
+.drop input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
+select.prio{padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-weight:600}
+.filters{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.82rem;color:var(--muted)}
+
+.costgrid input{width:100%;min-width:90px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);text-align:right;font-family:var(--mono)}
+.costgrid td:first-child{min-width:200px}
+.costgrid tr.out td{font-weight:600}
+.costgrid tr.total td{font-weight:700;background:var(--accent-soft)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:.85rem}
+.field input,.field textarea{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.field span{color:var(--muted)}
+
+.script{display:flex;flex-direction:column;gap:16px}
+.script ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.script li .tag{font-size:.72rem;font-weight:700;color:var(--muted);margin-left:6px}
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.check:last-child{border-bottom:0}
+.check input{margin-top:4px;accent-color:var(--accent)}
+.check p{margin:2px 0 0;color:var(--muted);font-size:.85rem;max-width:75ch}
+textarea.io{width:100%;min-height:140px;font-family:var(--mono);font-size:.78rem;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-weight:600;font-size:.88rem}
+/* Onboarding: welcome dialog + getting-started checklist */
+.ob-backdrop{position:fixed;inset:0;z-index:20;background:rgba(10,20,24,.55);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:max(24px,env(safe-area-inset-top,0px)) 16px 24px}
+.ob-dialog{background:var(--surface);color:var(--ink);border-radius:16px;max-width:560px;width:100%;padding:24px;display:flex;flex-direction:column;gap:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);margin:auto 0}
+.ob-dialog form{display:flex;flex-direction:column;gap:14px}
+.ob-dialog .field select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.ob-row{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+@media (max-width:480px){.ob-row{grid-template-columns:1fr}}
+.ob-vendors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (max-width:480px){.ob-vendors{grid-template-columns:1fr}}
+.ob-vendors input{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);min-width:0}
+.ob-warn{background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:8px 12px;font-size:.85rem;font-weight:600}
+.ob-x{position:absolute;right:10px;top:10px;border:0;background:none;width:44px;height:44px;border-radius:8px;color:var(--muted)}
+.ob-x:hover{background:var(--sunk)}
+.ob-head{position:relative;padding-right:44px;display:flex;flex-direction:column;gap:4px}
+.ob-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.ob-steps li{display:grid;grid-template-columns:22px 1fr auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.ob-steps li:last-child{border-bottom:0}
+.ob-dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);display:inline-flex;align-items:center;justify-content:center}
+.ob-steps li.done .ob-dot{background:var(--ok);border-color:var(--ok)}
+.ob-steps li.done .ob-label{color:var(--muted);text-decoration:line-through}
+.ob-steps li.next{background:var(--accent-soft);margin:0 -10px;padding:10px;border-radius:8px}
+.ob-banner{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:var(--warn-soft);color:var(--ink);border-radius:12px;padding:12px 16px}
+.vendor-edit{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+@media (prefers-reduced-motion:no-preference){.bar>i{transition:width .3s ease}}
+@media print{header.top,nav.tabs,.toast,section.view>.panel:first-child{display:none!important}body{background:#fff}main{padding:0}section.view>.panel{border:0;padding:0}}
+</style>
+
+<header class="top"><div class="wrap">
+  <div class="brand">
+    <span class="eyebrow">Medical software buyer's toolkit · 2026 edition</span>
+    <h1>EHR Selection Workbench</h1>
+    <span id="practiceLine" class="muted small"></span>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btnGuide" type="button">Getting started</button>
+    <button class="btn" id="btnBlank" type="button">New evaluation</button>
+    <button class="btn" id="btnSample" type="button">Load example</button>
+  </div>
+</div></header>
+<nav class="tabs" aria-label="Sections"><div class="wrap" role="tablist" id="tabs"></div></nav>
+<main class="wrap" id="main"></main>
+<div class="toast" id="toast" hidden></div>
+<div id="ob" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ---------- Engine: pure functions, no DOM ---------- */
+const PRIO = { must: 4, high: 3, med: 2, low: 1, skip: 0 };
+const PRIO_LABEL = { must: "Must", high: "High", med: "Med", low: "Low", skip: "Skip" };
+// Evidence: how much we trust a score. sd = spread used in simulation; conf = weight in confidence %.
+const EVID = {
+  demo:    { label: "Seen in scripted demo", short: "Demo",  sd: 0.35, conf: 1.0 },
+  ref:     { label: "Confirmed by reference", short: "Ref",   sd: 0.6,  conf: 0.85 },
+  claim:   { label: "Vendor says so",         short: "Claim", sd: 1.1,  conf: 0.45 },
+  unknown: { label: "Not yet checked",        short: "?",     sd: 1.6,  conf: 0 }
+};
+
+const GROUPS = [
+  { id: "clin", name: "Clinical charting" },
+  { id: "rcm",  name: "Billing & revenue cycle" },
+  { id: "intx", name: "Certification, interoperability & data rights" },
+  { id: "sec",  name: "Security & AI governance" },
+  { id: "use",  name: "Usability, implementation & support" }
+];
+
+// prio = suggested default. ask = what to make the vendor SHOW, not tell.
+const CRITERIA = [
+  // Clinical
+  { id: "tmpl",  g: "clin", prio: "high", name: "Templates for your specialty", hint: "Out-of-the-box note templates, order sets and flowsheets that match how your specialty documents.", ask: "Chart a typical new-patient visit for our specialty start to finish using only shipped templates." },
+  { id: "scribe",g: "clin", prio: "med",  name: "Ambient AI note drafting", hint: "Listens to the visit and drafts the note. Ask who stores the audio, for how long, and whether clinician edits are tracked.", ask: "Run the ambient scribe on a mock visit, then show where the audio lives, the retention setting, and the audit trail of my edits." },
+  { id: "erx",   g: "clin", prio: "must", name: "E-prescribing incl. controlled substances (EPCS)", hint: "Surescripts-connected eRx, refills, and DEA-compliant EPCS with two-factor signing.", ask: "Send a refill and a Schedule II prescription, including the two-factor signing step." },
+  { id: "drug",  g: "clin", prio: "must", name: "Drug-drug and drug-allergy alerts", hint: "Real-time interaction checks with tunable severity so alerts don't turn into noise.", ask: "Prescribe a drug that conflicts with a listed allergy; then show how we would tune alert severity." },
+  { id: "lists", g: "clin", prio: "must", name: "Problem, medication and allergy lists", hint: "Coded lists (ICD-10-CM / SNOMED CT, RxNorm) that carry across visits, with medication reconciliation.", ask: "Reconcile an outside medication list into the chart." },
+  { id: "labs",  g: "clin", prio: "high", name: "Lab orders and results", hint: "Bidirectional interfaces with your labs (e.g. Quest, Labcorp, hospital lab), LOINC-coded results, abnormal flagging.", ask: "Place a lab order and show a returned result landing in the chart with abnormal flags." },
+  { id: "imm",   g: "clin", prio: "med",  name: "Immunization registry reporting", hint: "Bidirectional exchange with your state immunization registry.", ask: "Show a live connection to our state registry, not a roadmap slide." },
+  { id: "cds",   g: "clin", prio: "med",  name: "Decision support you can inspect", hint: "Reminders and alerts whose logic and source you can see. ONC's decision-support criterion (b)(11) covers this.", ask: "Open one preventive-care alert and show what triggers it and where its guidance comes from." },
+  { id: "capture", g: "clin", prio: "high", name: "Document capture and indexing", hint: "Faxed or scanned outside records, intake forms and insurance cards land in the right chart automatically (OCR, barcodes, e-fax inbox) instead of being keyed by staff.", ask: "Send a faxed outside lab report and a scanned insurance card; show them landing in the right chart and how a misfiled page is corrected." },
+  { id: "portal",g: "clin", prio: "high", name: "Patient portal and secure messaging", hint: "Self-scheduling, intake forms, results, messaging, bill pay. Check the patient-side app ratings.", ask: "Complete intake and book an appointment as a patient on a phone." },
+  { id: "refer", g: "clin", prio: "high", name: "Referrals and care summaries", hint: "Send and receive referrals and summaries electronically, without fax.", ask: "Send a referral with a care summary to an outside practice and show the receipt." },
+  // RCM
+  { id: "sched", g: "rcm", prio: "high", name: "Scheduling and reminders", hint: "Multi-provider and room scheduling, automated text/email reminders, waitlist fill.", ask: "Reschedule a cancelled slot from the waitlist with an automatic text." },
+  { id: "elig",  g: "rcm", prio: "high", name: "Real-time eligibility", hint: "Insurance verification at booking and check-in, with copay and deductible shown.", ask: "Run eligibility for a commercial and a Medicare patient at check-in." },
+  { id: "scrub", g: "rcm", prio: "high", name: "Claim scrubbing (ICD-10-CM / CPT edits)", hint: "Catches errors before submission: NCCI edits, modifiers, payer-specific rules.", ask: "Submit a claim with a known modifier error and show it being caught." },
+  { id: "chouse",g: "rcm", prio: "high", name: "Backup clearinghouse", hint: "Can claims be rerouted if the clearinghouse goes down? The 2024 Change Healthcare outage stalled claims at many practices for weeks.", ask: "Show the documented failover to a second clearinghouse and how long switching takes." },
+  { id: "era",   g: "rcm", prio: "med",  name: "ERA auto-posting and denial work queues", hint: "Electronic remittances post automatically; denials route to a queue with reason codes.", ask: "Post an 835 file and work a denial from the queue." },
+  { id: "cob",   g: "rcm", prio: "high", name: "Secondary claims and Medicare Secondary Payer (COB)", hint: "Automatic secondary claims after the primary pays, Medicare crossover, and prompts to update the MSP questionnaire so Medicare isn't billed first by mistake.", ask: "Bill a patient whose employer plan is primary and Medicare secondary: show the MSP prompt, the primary claim, and the automatic secondary claim with the primary's payment attached." },
+  { id: "epa",   g: "rcm", prio: "med",  name: "Electronic prior authorization", hint: "Payers in Medicare Advantage and Medicaid must stand up FHIR prior-auth APIs by Jan 2027. Ask about ONC criteria (g)(31)–(g)(33).", ask: "Show a prior-auth request submitted electronically, or the dated roadmap for the FHIR prior-auth APIs." },
+  { id: "pay",   g: "rcm", prio: "med",  name: "Patient payments", hint: "Text-to-pay, card on file, payment plans, estimates.", ask: "Send a statement by text and pay it on a phone." },
+  { id: "ar",    g: "rcm", prio: "med",  name: "A/R and denial reporting", hint: "Aging by payer, denial rate, days in A/R, without exporting to Excel.", ask: "Show days in A/R by payer and the top five denial reasons this month." },
+  // Interop
+  { id: "chpl",  g: "intx", prio: "must", name: "Listed on ONC's CHPL", hint: "Certified health IT, checked on chpl.healthit.gov. Required for Medicare Promoting Interoperability (MIPS) credit.", ask: "Give us the exact CHPL product ID and version we would be running." },
+  { id: "fhir",  g: "intx", prio: "high", name: "FHIR R4 API and bulk export", hint: "Standard API (ONC (g)(10)) so apps, analytics and future vendors can read your data.", ask: "Show your public API docs and a bulk FHIR export of a test panel." },
+  { id: "hie",   g: "intx", prio: "med",  name: "Health information exchange", hint: "Query local hospitals and national networks (Carequality, CommonWell, TEFCA).", ask: "Pull outside records for a patient seen at a local hospital." },
+  { id: "exit",  g: "intx", prio: "must", name: "Full data export when you leave", hint: "Complete chart, documents and billing history in standard formats, with the fee and timeline written into the contract.", ask: "Put the exit-export scope, format, fee and delivery days in the contract draft." },
+  { id: "ehi",   g: "intx", prio: "high", cite: "ONC 45 CFR §170.315(b)(10)", name: "Record-level export with a data dictionary", hint: "ONC's EHI export criterion requires a single-patient export and a whole-practice export of all electronic health information, with the export format documented publicly. Without that data dictionary, the next vendor can't map your fields.", ask: "Run a single-patient EHI export and a full export of a test panel, and send the link to the public data dictionary that describes every table and field." },
+  { id: "qual",  g: "intx", prio: "high", name: "Quality reporting (MIPS)", hint: "Quality-measure dashboards and electronic submission.", ask: "Show our measure performance dashboard and the submission workflow." },
+  // Security
+  { id: "baa",   g: "sec", prio: "must", cite: "HIPAA §164.308(b), §164.504(e)", name: "Business Associate Agreement", hint: "Signed BAA covering the vendor and its subcontractors, including any AI provider.", ask: "Send the BAA and the list of subcontractors that touch our data." },
+  { id: "mfa",   g: "sec", prio: "must", cite: "HIPAA §164.312(d)", name: "Multifactor sign-in for every user", hint: "ONC's proposed HTI-5 rule would drop most security certification criteria, so certification may stop proving this. Verify it yourself.", ask: "Log in as a front-desk user and show the MFA prompt, and that admins cannot turn it off." },
+  { id: "enc",   g: "sec", prio: "must", cite: "HIPAA §164.312(a)(2)(iv), (e)(2)(ii)", name: "Encryption in transit and at rest", hint: "Including backups and any local caches on laptops or tablets.", ask: "Document encryption for databases, backups and device caches." },
+  { id: "audit", g: "sec", prio: "high", cite: "HIPAA §164.312(b)", name: "Audit logs you can read", hint: "Who opened which chart and when, searchable by your staff without a support ticket.", ask: "Show who viewed a given chart last week, run by our office manager." },
+  { id: "down",  g: "sec", prio: "high", cite: "HIPAA §164.308(a)(7)(ii)(C)", name: "Downtime plan", hint: "Read-only chart access and printable schedules if the internet or the vendor is down.", ask: "Show the read-only downtime view and the last outage's post-mortem." },
+  { id: "bkp",   g: "sec", prio: "high", cite: "HIPAA §164.308(a)(7)(ii)(A), (D)", name: "Backups with tested restores", hint: "Recovery point and recovery time stated in writing.", ask: "Give us RPO/RTO in writing and the date of the last restore test." },
+  { id: "sftp",  g: "sec", prio: "med", cite: "HIPAA §164.312(e)(1), (c)(1)", name: "Secure file exchange", hint: "Encrypted, logged transfer (SFTP or managed file transfer) for lab, billing, payer and export files, instead of email attachments or plain FTP.", ask: "Show how a payer or lab file is exchanged: the protocol, where it's encrypted, and the transfer log." },
+  { id: "soc",   g: "sec", prio: "high", name: "SOC 2 Type II or HITRUST report", hint: "Independent audit, current within 12 months.", ask: "Share the current SOC 2 Type II or HITRUST report under NDA." },
+  { id: "ai",    g: "sec", prio: "high", name: "AI data-use terms", hint: "Is your PHI or audio used to train models? Can you opt out? Which AI vendors process it?", ask: "Point to the contract clause on model training with our data and the opt-out." },
+  { id: "aiprov", g: "sec", prio: "high", name: "AI model provenance and validation", hint: "For each AI feature (scribe, fax indexing, lab extraction, coding): which model powers it, what it was validated on, its accuracy on documents like yours, its regulatory status, and who is liable when it's wrong. Open medical models such as MedGemma are published as starting points that need validation before clinical use.", ask: "For each AI feature, name the underlying model, share the validation results, run it on our fictional test documents during the demo, and show the contract clause on liability for AI errors." },
+  // Usability
+  { id: "clicks",g: "use", prio: "high", name: "Speed on your top workflows", hint: "Time and clicks for your five most common tasks, measured during the demo with a stopwatch.", ask: "Let our own nurse do the five scripted tasks while we time them." },
+  { id: "queues", g: "use", prio: "med", name: "Configurable task routing", hint: "Work queues for refills, referrals, prior auths and messages, with assignment rules, due dates and a view of what's overdue.", ask: "Route a refill request and a prior auth to the right staff queue by rule, then show the overdue-tasks view." },
+  { id: "mobile",g: "use", prio: "med",  name: "Mobile and tablet use", hint: "Charting, messaging and eRx from a phone or tablet.", ask: "Answer a patient message and refill a prescription from a phone." },
+  { id: "a11y",  g: "use", prio: "high", name: "Accessibility (WCAG 2.1 AA)", hint: "HHS's Section 504 rule requires accessible websites and apps, including patient portals: by May 11, 2027 with 15+ employees, May 10, 2028 if fewer. Ask for a current VPAT / Accessibility Conformance Report.", ask: "Send your current Accessibility Conformance Report (VPAT 2.x) for the portal and patient app, and show a portal task done with a screen reader." },
+  { id: "impl",  g: "use", prio: "high", name: "Implementation and go-live support", hint: "Named implementation lead, data migration plan, on-site go-live help.", ask: "Show the go-live plan with named roles and the migration test schedule." },
+  { id: "sla",   g: "use", prio: "high", name: "Support response times", hint: "Guaranteed response time by severity, hours, and phone access to a person.", ask: "Put severity-1 response time and support hours in the contract." },
+  { id: "train", g: "use", prio: "med",  name: "Training, including new releases", hint: "Role-based training and release notes before each update.", ask: "Show the training plan by role and the last release's notes." },
+  { id: "refs",  g: "use", prio: "high", name: "References like you", hint: "Same specialty and size, live for more than a year, and one practice that left.", ask: "Give us three same-specialty references and one former customer." }
+];
+
+// Specialty presets: priority overrides on top of each item's default. Applying one replaces manual priority edits.
+const PRESETS = {
+  primary: { label: "Family / internal medicine", prio: { imm: "high", cds: "high", qual: "high", portal: "high", refer: "high", epa: "med" } },
+  peds:    { label: "Pediatrics", prio: { imm: "must", cds: "high", portal: "high", sched: "high", tmpl: "must", qual: "high" } },
+  bh:      { label: "Behavioral health", prio: { ai: "must", audit: "must", scribe: "high", portal: "high", epa: "high", labs: "med", imm: "skip", capture: "med", drug: "must" } },
+  derm:    { label: "Dermatology", prio: { tmpl: "must", capture: "high", mobile: "high", pay: "high", imm: "skip", labs: "med", epa: "high" } },
+  ortho:   { label: "Orthopedics", prio: { epa: "high", refer: "high", capture: "high", cob: "high", imm: "skip", cds: "low", tmpl: "must" } },
+  obgyn:   { label: "OB/GYN", prio: { labs: "must", tmpl: "must", refer: "high", portal: "high", imm: "med", hie: "high" } },
+  cardio:  { label: "Cardiology", prio: { labs: "must", hie: "high", refer: "high", epa: "high", capture: "high", imm: "low", qual: "high" } }
+};
+
+/* ---- CHPL product number: Edition.ATL.ACB.Developer.Product.Version.ICS.AdditionalSoftware.CertifiedDate(YYMMDD) ---- */
+function chplParse(id) {
+  const t = String(id || "").trim();
+  if (!t) return null;
+  const m = t.match(/^(\d{2})\.(\d{2})\.(\d{2})\.(\d{4})\.(\w{4})\.(\w{2})\.(\d{2})\.([01])\.(\d{6})$/);
+  if (!m) return { ok: false, id: t };
+  const [y, mo, d] = [m[9].slice(0, 2), m[9].slice(2, 4), m[9].slice(4, 6)];
+  const date = new Date(Date.UTC(2000 + +y, +mo - 1, +d));
+  if (date.getUTCMonth() !== +mo - 1 || date.getUTCDate() !== +d) return { ok: false, id: t };
+  return { ok: true, id: t, edition: m[1], developer: m[4], product: m[5], version: m[6], ics: +m[7], certified: date.toISOString().slice(0, 10) };
+}
+
+/* ---- deterministic RNG for repeatable simulations ---- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(rng) { let u = 0, v = 0; while (u === 0) u = rng(); while (v === 0) v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+function cell(state, vi, id) { return (state.scores[vi] && state.scores[vi][id]) || { s: null, e: "unknown" }; }
+function prioOf(state, id) { return (state.prio && state.prio[id]) || CRITERIA.find(c => c.id === id).prio; }
+
+/* Fit score 0-100: weighted mean of 0-5 ratings. Unrated = 2.5 (neutral) but zero confidence. */
+function fitScore(state, vi, wMul, sMap) {
+  let num = 0, den = 0, cw = 0, conf = 0;
+  for (const c of CRITERIA) {
+    const w = PRIO[prioOf(state, c.id)] * (wMul ? wMul[c.id] : 1);
+    if (!w) continue;
+    const x = cell(state, vi, c.id);
+    const s = sMap ? sMap[c.id] : (x.s == null ? 2.5 : x.s);
+    num += w * s; den += w * 5;
+    cw += w; conf += w * (x.s == null ? 0 : EVID[x.e].conf);
+  }
+  return { fit: den ? 100 * num / den : 0, confidence: cw ? 100 * conf / cw : 0 };
+}
+
+function knockouts(state, vi) {
+  const failed = [], unverified = [];
+  for (const c of CRITERIA) {
+    if (prioOf(state, c.id) !== "must") continue;
+    const x = cell(state, vi, c.id);
+    if (x.s == null || x.e === "unknown") unverified.push(c);
+    else if (x.s <= 2) failed.push(c);
+  }
+  return { failed, unverified };
+}
+
+/* Total cost of ownership, present value over the horizon. */
+function tco(state, vi) {
+  const p = state.practice, v = state.vendors[vi].cost;
+  const r = p.rate / 100, Y = p.years, esc = v.escalator / 100;
+  const upfront = Object.values(v.upfront).reduce((a, b) => a + (+b || 0), 0);
+  const fr = feeRevenue(state);
+  const weeklyRev = (p.useFeeRev && fr.total > 0) ? fr.total / 52 : 5 * p.providers * p.visitsPerDay * p.revPerVisit;
+  const goLive = (+v.goLiveWeeks || 0) * weeklyRev * ((+v.goLiveDip || 0) / 100);
+  const annual0 = (+v.perProviderMonthly || 0) * 12 * p.providers + Object.values(v.annual).reduce((a, b) => a + (+b || 0), 0);
+  let pvRecurring = 0, nominalRecurring = 0; const byYear = [];
+  for (let t = 1; t <= Y; t++) {
+    const yr = annual0 * Math.pow(1 + esc, t - 1);
+    nominalRecurring += yr; pvRecurring += yr / Math.pow(1 + r, t); byYear.push(yr);
+  }
+  const exitPV = (+v.exitCost || 0) / Math.pow(1 + r, Y);
+  const pv = upfront + goLive + pvRecurring + exitPV;
+  return { upfront, goLive, annual0, pvRecurring, exitPV, pv, nominal: upfront + goLive + nominalRecurring + (+v.exitCost || 0), byYear, perProviderYear: pv / Y / p.providers };
+}
+
+/* Fee schedule: expected annual revenue from the practice's code list. */
+function feeKey(code, mod) { return String(code || "").trim().toUpperCase() + "|" + String(mod || "").trim().toUpperCase(); }
+function feeLookup(state, row) { const f = (state.fees || {})[feeKey(row.code, row.mod)]; if (!f) return null; const v = row.pos === "f" ? f.f : f.nf; return v == null ? null : v; }
+function feeRevenue(state) {
+  const mult = (state.practice.payerMult == null ? 100 : state.practice.payerMult) / 100;
+  let total = 0; const rows = (state.codes || []).map(r => { const price = feeLookup(state, r); const rev = price == null ? 0 : price * (+r.vol || 0) * mult; total += rev; return { r, price, rev }; });
+  return { rows, total, mult };
+}
+/* Codes where the price the vendor's system showed differs from the fee schedule by more than 1%. */
+function feeMismatches(state, vi) {
+  const out = [];
+  for (const r of state.codes || []) {
+    const price = feeLookup(state, r), shown = r.shown ? r.shown[vi] : null;
+    if (price == null || shown == null || shown === "") continue;
+    if (Math.abs(+shown - price) > Math.max(0.01, price * 0.01)) out.push({ r, price, shown: +shown });
+  }
+  return out;
+}
+
+/* Staff-time savings: tasks x times/day x minutes saved, priced at the loaded staff wage. */
+function savings(state, vi) {
+  const p = state.practice, tasks = state.tasks || [];
+  const days = +p.workDays || 250, wage = +p.wage || 0, r = p.rate / 100, Y = p.years;
+  let hours = 0, measured = 0;
+  for (const t of tasks) {
+    const now = +t.minNow || 0, m = t.min ? t.min[vi] : null;
+    if (m == null || m === "") continue;
+    measured++; hours += (+t.perDay || 0) * days * (now - (+m)) / 60;
+  }
+  const annual = hours * wage;
+  const t = tco(state, vi), cur = +p.currentAnnual || 0;
+  let pvSav = 0; for (let y = 1; y <= Y; y++) pvSav += (annual + cur) / Math.pow(1 + r, y);
+  const invest = t.upfront + t.goLive;
+  const monthlyNet = (annual + cur - t.annual0) / 12;
+  const payback = monthlyNet > 0 ? invest / monthlyNet : Infinity;
+  const twoYrCost = invest + t.byYear.slice(0, 2).reduce((a, b) => a + b, 0);
+  const roi2 = twoYrCost > 0 ? ((annual + cur) * 2 - twoYrCost) / twoYrCost : 0;
+  return { hours, annual, pvSav, payback, roi2, net: t.pv - pvSav, measured, total: tasks.length };
+}
+/* Cost score. Plain mode: cheapest PV = 100, others proportional (original toolkit behaviour).
+   Savings mode: linear on net cost (PV minus PV of savings); cheapest net = 100, +1x the dearest PV = 0. */
+function costScores(eff, pv, useSav) {
+  const ids = Object.keys(eff); if (!ids.length) return {};
+  const out = {};
+  if (!useSav) { const m = Math.min(...ids.map(i => pv[i])); ids.forEach(i => out[i] = 100 * m / pv[i]); return out; }
+  const m = Math.min(...ids.map(i => eff[i])), span = Math.max(...ids.map(i => pv[i]));
+  ids.forEach(i => out[i] = Math.max(0, 100 * (1 - (eff[i] - m) / span)));
+  return out;
+}
+
+/* Deterministic ranking. Knocked-out vendors are listed but never win. */
+function rank(state) {
+  const rows = state.vendors.map((v, vi) => {
+    const f = fitScore(state, vi), k = knockouts(state, vi), t = tco(state, vi);
+    return { vi, name: v.name, ...f, ko: k, tco: t, eligible: k.failed.length === 0 };
+  });
+  const useSav = !!state.practice.useSavings && (state.tasks || []).length > 0;
+  const eff = {}, pv = {};
+  rows.forEach(r => { r.sav = savings(state, r.vi); if (r.eligible) { pv[r.vi] = r.tco.pv; eff[r.vi] = useSav ? r.sav.net : r.tco.pv; } });
+  const cs = costScores(eff, pv, useSav);
+  const cwt = state.practice.costWeight / 100;
+  rows.forEach(r => {
+    r.costScore = cs[r.vi] ?? 0;
+    r.overall = (1 - cwt) * r.fit + cwt * r.costScore;
+  });
+  return rows.sort((a, b) => (b.eligible - a.eligible) || (b.overall - a.overall));
+}
+
+/* Monte Carlo: how often does each vendor win if priorities are a bit off,
+   ratings are as uncertain as their evidence, and costs overrun? */
+function simulate(state, N = 3000, seed = 7) {
+  const rng = mulberry32(seed);
+  const vs = state.vendors.map((_, vi) => vi).filter(vi => knockouts(state, vi).failed.length === 0);
+  const wins = {}; state.vendors.forEach((_, vi) => wins[vi] = 0);
+  if (!vs.length) return { wins, N, top: null };
+  const basePV = {}, baseSav = {}; vs.forEach(vi => { basePV[vi] = tco(state, vi).pv; baseSav[vi] = savings(state, vi).pvSav; });
+  const useSav = !!state.practice.useSavings && (state.tasks || []).length > 0;
+  const cwt = state.practice.costWeight / 100;
+  for (let i = 0; i < N; i++) {
+    const wMul = {}; for (const c of CRITERIA) wMul[c.id] = 0.5 + rng();          // each priority ±50%
+    const fits = {}, pvs = {};
+    for (const vi of vs) {
+      const sMap = {};
+      for (const c of CRITERIA) {
+        const x = cell(state, vi, c.id);
+        const mu = x.s == null ? 2.5 : x.s, sd = EVID[x.s == null ? "unknown" : x.e].sd;
+        sMap[c.id] = clamp(mu + sd * gauss(rng), 0, 5);
+      }
+      fits[vi] = fitScore(state, vi, wMul, sMap).fit;
+      pvs[vi] = basePV[vi] * (0.95 + 0.30 * rng());                                // overruns skew upward
+    }
+    const eff = {}; for (const vi of vs) eff[vi] = useSav ? pvs[vi] - baseSav[vi] * (0.6 + 0.6 * rng()) : pvs[vi];  // savings: 60-120% of estimate
+    const cs = costScores(eff, pvs, useSav);
+    let best = null, bestV = -1;
+    for (const vi of vs) { const o = (1 - cwt) * fits[vi] + cwt * cs[vi]; if (o > bestV) { bestV = o; best = vi; } }
+    wins[best]++;
+  }
+  const top = vs.reduce((a, b) => wins[a] >= wins[b] ? a : b);
+  return { wins, N, top };
+}
+
+/* Which unchecked or weakly-evidenced high-weight items could change the answer? */
+function openQuestions(state, shortlist) {
+  const out = [];
+  for (const c of CRITERIA) {
+    const pr = prioOf(state, c.id); if (!PRIO[pr] || PRIO[pr] < 3) continue;
+    const who = shortlist.filter(vi => { const x = cell(state, vi, c.id); return x.s == null || x.e === "unknown" || x.e === "claim"; });
+    if (!who.length) continue;
+    const scores = shortlist.map(vi => cell(state, vi, c.id).s).filter(s => s != null);
+    const spread = scores.length > 1 ? Math.max(...scores) - Math.min(...scores) : 0;
+    out.push({ c, pr, who, impact: PRIO[pr] * who.length * (1 + spread) });
+  }
+  return out.sort((a, b) => b.impact - a.impact);
+}
+
+if (typeof module !== "undefined") module.exports = { PRIO, EVID, CRITERIA, GROUPS, savings, costScores, feeKey, feeLookup, feeRevenue, feeMismatches, fitScore, knockouts, tco, rank, simulate, openQuestions, PRESETS, chplParse };
+
+/* ---------- Example data (clearly labelled as such in the UI) ---------- */
+function sampleState() {
+  const practice = { name: "Example: 4-provider family practice", providers: 4, visitsPerDay: 22, revPerVisit: 115, rate: 5, years: 7, costWeight: 20 };
+  const mkCost = (o) => Object.assign({
+    upfront: { license: 0, implementation: 0, migration: 0, training: 0, hardware: 0, interfaces: 0 },
+    annual: { support: 0, clearinghouse: 0, erx: 0, other: 0 },
+    perProviderMonthly: 0, escalator: 5, exitCost: 0, goLiveWeeks: 4, goLiveDip: 25
+  }, o);
+  const vendors = [
+    { name: "Northwind Cloud EHR", note: "Example vendor · cloud all-in-one",
+      cost: mkCost({ upfront: { license: 0, implementation: 6000, migration: 4500, training: 2000, hardware: 3000, interfaces: 2500 }, annual: { support: 0, clearinghouse: 2400, erx: 0, other: 1200 }, perProviderMonthly: 449, escalator: 6, exitCost: 5000, goLiveWeeks: 3, goLiveDip: 25 }) },
+    { name: "Meridian Practice Suite", note: "Example vendor · enterprise-grade, hosted",
+      cost: mkCost({ upfront: { license: 24000, implementation: 15000, migration: 8000, training: 6000, hardware: 4000, interfaces: 6000 }, annual: { support: 4800, clearinghouse: 3600, erx: 1200, other: 2400 }, perProviderMonthly: 520, escalator: 4, exitCost: 0, goLiveWeeks: 6, goLiveDip: 30 }) },
+    { name: "Lowtide Charts", note: "Example vendor · low-cost subscription",
+      cost: mkCost({ upfront: { license: 0, implementation: 1500, migration: 2500, training: 0, hardware: 2000, interfaces: 0 }, annual: { support: 0, clearinghouse: 1800, erx: 600, other: 0 }, perProviderMonthly: 249, escalator: 9, exitCost: 15000, goLiveWeeks: 3, goLiveDip: 20 }) }
+  ];
+  // [score, evidence] per criterion per vendor. Deliberately mixed evidence so the simulation has something to say.
+  const S = {
+    tmpl:[[4,"demo"],[5,"demo"],[3,"demo"]], scribe:[[4,"demo"],[3,"claim"],[2,"claim"]], erx:[[5,"demo"],[5,"demo"],[4,"demo"]],
+    drug:[[4,"demo"],[5,"demo"],[3,"demo"]], lists:[[4,"demo"],[5,"demo"],[4,"demo"]], labs:[[4,"ref"],[5,"ref"],[3,"claim"]],
+    imm:[[3,"claim"],[4,"ref"],[2,"claim"]], cds:[[3,"demo"],[4,"claim"],[2,"demo"]], portal:[[5,"demo"],[3,"demo"],[3,"demo"]],
+    refer:[[4,"demo"],[4,"claim"],[3,"demo"]], sched:[[5,"demo"],[4,"demo"],[4,"demo"]], elig:[[4,"demo"],[5,"demo"],[3,"demo"]],
+    scrub:[[4,"claim"],[5,"demo"],[3,"claim"]], chouse:[[2,"claim"],[4,"claim"],[null,"unknown"]], era:[[4,"demo"],[5,"demo"],[3,"claim"]],
+    epa:[[3,"claim"],[4,"claim"],[1,"claim"]], pay:[[5,"demo"],[3,"demo"],[4,"demo"]], ar:[[3,"demo"],[5,"demo"],[2,"demo"]],
+    chpl:[[5,"ref"],[5,"ref"],[4,"ref"]], fhir:[[4,"claim"],[4,"demo"],[2,"claim"]], hie:[[4,"claim"],[4,"ref"],[2,"claim"]],
+    exit:[[3,"claim"],[4,"claim"],[1,"claim"]], qual:[[3,"demo"],[5,"demo"],[3,"claim"]], baa:[[5,"ref"],[5,"ref"],[5,"ref"]],
+    mfa:[[5,"demo"],[4,"claim"],[3,"claim"]], enc:[[4,"claim"],[5,"ref"],[4,"claim"]], audit:[[3,"demo"],[5,"demo"],[2,"demo"]],
+    down:[[2,"claim"],[4,"claim"],[null,"unknown"]], bkp:[[4,"claim"],[4,"claim"],[3,"claim"]], soc:[[4,"ref"],[5,"ref"],[null,"unknown"]],
+    ai:[[2,"claim"],[4,"claim"],[null,"unknown"]], clicks:[[5,"demo"],[3,"demo"],[4,"demo"]], mobile:[[5,"demo"],[3,"demo"],[3,"demo"]],
+    impl:[[4,"ref"],[5,"ref"],[2,"ref"]], sla:[[3,"claim"],[4,"claim"],[2,"claim"]], train:[[4,"demo"],[5,"demo"],[2,"claim"]],
+    refs:[[4,"ref"],[4,"ref"],[3,"ref"]], aiprov:[[3,"claim"],[4,"ref"],[null,"unknown"]], ehi:[[3,"claim"],[4,"demo"],[1,"claim"]],
+    cob:[[4,"demo"],[5,"demo"],[2,"claim"]], capture:[[4,"demo"],[4,"ref"],[2,"claim"]], queues:[[4,"demo"],[5,"demo"],[2,"demo"]], sftp:[[4,"claim"],[5,"ref"],[2,"claim"]], a11y:[[3,"claim"],[4,"ref"],[null,"unknown"]]
+  };
+  const scores = vendors.map((_, vi) => { const o = {}; for (const id in S) o[id] = { s: S[id][vi][0], e: S[id][vi][1] }; return o; });
+  // Real rows from the attached PFSExport1.xls (2011 Medicare fee schedule, locality 910299, CF $33.9764). Old prices: example only.
+  const F = { G0438:["PPPS, initial visit",161.85,null], G0439:["PPPS, subseq visit",106.68,null], G0402:["Initial preventive exam",148.92,127.36],
+    G0101:["CA screen;pelvic/breast exam",36.85,27.57], G0102:["Prostate ca screening; dre",19.26,8.98], G0436:["Tobacco-use counsel 3-10 min",14.02,12.03],
+    G0437:["Tobacco-use counsel>10min",28.6,26.61], G0108:["Diab manage trn per indiv",55.24,null], G0268:["Removal of impacted wax md",50.91,32.67], G0127:["Trim nail(s)",21.25,8.32] };
+  const fees = {}; for (const k in F) fees[k + "|"] = { d: F[k][0], nf: F[k][1], f: F[k][2] };
+  const vol = { G0438:180, G0439:620, G0402:90, G0101:240, G0102:150, G0436:300, G0437:120, G0108:80, G0268:110, G0127:60 };
+  // What each example vendor's system priced the codes at during the demo. Lowtide still carries an old schedule for two codes.
+  const codes = Object.keys(F).map(c => ({ code: c, mod: "", pos: "nf", vol: vol[c], shown: [F[c][1], F[c][1], c === "G0439" ? 101.35 : c === "G0402" ? 141.47 : F[c][1]] }));
+  practice.payerMult = 100; practice.useFeeRev = false;
+  // Example staff-time study: minutes per task today vs. timed in each vendor's demo.
+  Object.assign(practice, { wage: 28, workDays: 250, currentAnnual: 30000, useSavings: false });
+  const tasks = [
+    { name: "Patient intake and demographics entry", perDay: 70, minNow: 6, min: [2, 3, 5] },
+    { name: "Indexing faxed outside records to the chart", perDay: 40, minNow: 4, min: [1.5, 2, 4] },
+    { name: "Eligibility checks", perDay: 70, minNow: 3, min: [0.5, 0.5, 2] },
+    { name: "Refill requests", perDay: 45, minNow: 3, min: [1.5, 2, 2.5] },
+    { name: "Prior authorizations", perDay: 8, minNow: 25, min: [15, 20, 25] },
+    { name: "Claim rework and denials", perDay: 15, minNow: 12, min: [8, 6, 11] }
+  ];
+  return { v: 5, isSample: true, practice, vendors, prio: {}, scores, fees, codes, tasks,
+    feeMeta: { source: "Example: your attached PFSExport1.xls (2011 Medicare fee schedule, locality 910299, conversion factor $33.9764). Prices are outdated; load the current CMS file.", rows: Object.keys(F).length } };
+}
+if (typeof module !== "undefined") module.exports = { sampleState };
+
+</script>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const money = n => "$" + Math.round(n).toLocaleString("en-US");
+const kmoney = n => n >= 1e6 ? "$" + (n / 1e6).toFixed(2) + "M" : "$" + Math.round(n / 1000) + "k";
+const KEY = "ehr-workbench-v1";
+
+const CONTRACT = [
+  { id: "cap",   t: "Price increases capped in writing", d: "A fixed annual cap (3–5%) on subscription, support and per-claim fees for the full term, including renewals." },
+  { id: "exit",  t: "Data exit clause", d: "Complete export of charts, documents, images and billing history in named standard formats, including the record-level EHI export and its data dictionary, with a fixed fee and delivery deadline, available after termination for any reason." },
+  { id: "renew", t: "No silent auto-renewal", d: "Renewal needs written notice from the vendor 90+ days ahead; avoid multi-year auto-renew terms." },
+  { id: "term",  t: "Termination rights", d: "Exit for cause (missed SLAs, security breach, decertification) without early-termination fees." },
+  { id: "sla",   t: "Uptime and support SLAs with credits", d: "99.9% uptime or better, severity-1 response time in hours, and service credits when missed." },
+  { id: "baa",   t: "BAA covers subcontractors", d: "Including hosting, clearinghouse and any AI or transcription provider, with breach notice timelines." },
+  { id: "ai",    t: "AI and data-use limits", d: "No use of your PHI, audio or notes to train models without opt-in; de-identified data rights spelled out; the vendor names the model behind each AI feature, states its validated accuracy, and accepts liability for its errors." },
+  { id: "ch",    t: "Clearinghouse failover", d: "A documented way to route claims through a second clearinghouse during an outage, and who pays for it." },
+  { id: "fees",  t: "All usage fees listed", d: "Per-claim, per-eligibility-check, eRx, fax, text-message, interface and API fees in one schedule." },
+  { id: "grow",  t: "Price lock for added providers", d: "New providers and locations added at the contracted rate." },
+  { id: "cert",  t: "Certification maintained", d: "Vendor keeps the product on ONC's CHPL so you remain eligible for MIPS Promoting Interoperability credit." }
+];
+
+let state = migrate(load()) || sampleState();
+function migrate(s) {
+  if (!s || !s.practice || !Array.isArray(s.vendors) || !Array.isArray(s.scores)) return null;   // unreadable save: start fresh
+  if (s.isSample && s.v !== sampleState().v) return sampleState();   // refresh stale example data
+  s.tasks = s.tasks || []; if (s.practice.wage == null) Object.assign(s.practice, { wage: 25, workDays: 250, currentAnnual: 0, useSavings: false });
+  s.codes = s.codes || []; s.fees = s.fees || {}; s.feeMeta = s.feeMeta || null;
+  if (s.practice.payerMult == null) s.practice.payerMult = 100;
+  if (s.practice.specialty == null) s.practice.specialty = "";
+  return s;
+}
+let tab = "decision";
+let filterHigh = false;
+let simCache = null;
+
+function load() { try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 1800); }
+function changed() { state.isSample = false; simCache = null; save(); const y = window.scrollY; render(); window.scrollTo(0, y); }
+
+function blankState() {
+  const s = sampleState();
+  s.isSample = false;
+  s.practice = { name: "My practice", providers: 3, visitsPerDay: 20, revPerVisit: 110, rate: 5, years: 7, costWeight: 20 };
+  s.vendors = ["Vendor 1", "Vendor 2", "Vendor 3"].map(n => ({ name: n, note: "", cost: {
+    upfront: { license: 0, implementation: 0, migration: 0, training: 0, hardware: 0, interfaces: 0 },
+    annual: { support: 0, clearinghouse: 0, erx: 0, other: 0 }, perProviderMonthly: 0, escalator: 5, exitCost: 0, goLiveWeeks: 4, goLiveDip: 25 } }));
+  s.scores = s.vendors.map(() => ({}));
+  s.prio = {}; s.practice.specialty = ""; s.contract = {}; s.codes = []; s.fees = {}; s.feeMeta = null; s.practice.payerMult = 100; s.practice.useFeeRev = false;
+  s.tasks = []; Object.assign(s.practice, { wage: 25, workDays: 250, currentAnnual: 0, useSavings: false });
+  return s;
+}
+
+const TABS = [["decision", "Decision"], ["req", "Requirements"], ["cost", "Costs"], ["fees", "Reimbursement"], ["savings", "Savings"], ["vendors", "Vendors & practice"], ["script", "Demo script"], ["contract", "Contract"], ["report", "Report"], ["data", "Save / load"]];
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map(([id, l]) => `<button role="tab" type="button" aria-selected="${id === tab}" data-tab="${id}">${l}</button>`).join("");
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-tab]");
+  if (b) { tab = b.dataset.tab; render(); window.scrollTo({ top: 0 }); }
+});
+
+function render() {
+  renderTabs();
+  $("#practiceLine").innerHTML = `${esc(state.practice.name)} · ${state.practice.providers} providers · ${state.vendors.length} vendors` + (state.isSample ? ` &nbsp;<span class="sample-flag">Example data</span>` : "");
+  const m = $("#main");
+  m.innerHTML = ({ decision: viewDecision, req: viewReq, cost: viewCost, fees: viewFees, savings: viewSavings, vendors: viewVendors, script: viewScript, contract: viewContract, report: viewReport, data: viewData })[tab]();
+}
+
+/* ---------------- Onboarding ---------------- */
+const OB_KEY = "ehr-workbench-onboarded";   // per-viewer: has this browser seen the welcome?
+function obSeen() { try { return localStorage.getItem(OB_KEY) === "1"; } catch (e) { return true; } }
+function obMark() { try { localStorage.setItem(OB_KEY, "1"); } catch (e) {} }
+
+/* Getting-started steps, each derived from the evaluation itself so it ticks off as people work. */
+function obSteps() {
+  const vs = state.vendors, musts = CRITERIA.filter(c => prioOf(state, c.id) === "must");
+  const mustTotal = musts.length * vs.length;
+  const mustDone = vs.reduce((n, _, vi) => n + musts.filter(c => cell(state, vi, c.id).s != null).length, 0);
+  const quoted = vs.filter((_, vi) => { const t = tco(state, vi); return t.upfront + t.annual0 > 0; }).length;
+  const demoed = vs.filter((_, vi) => CRITERIA.some(c => cell(state, vi, c.id).e === "demo")).length;
+  return [
+    { label: "Describe your practice", hint: "Name, providers and visit volume drive the cost model.", done: !!state.practice.name && state.practice.name !== "My practice", tab: "vendors" },
+    { label: "Set your priorities", hint: "Pick a specialty preset, then mark your true must-haves.", done: !!state.practice.specialty || Object.keys(state.prio || {}).length > 0, tab: "req" },
+    { label: "Name the vendors you're considering", hint: `${vs.filter(v => !/^Vendor \d+$/.test(v.name)).length} of ${vs.length} named.`, done: vs.every(v => !/^Vendor \d+$/.test(v.name)), tab: "vendors" },
+    { label: "Send each vendor its demo script", hint: "Copy the scripts so demos show your workflows, not theirs.", done: demoed > 0 || !!state.scriptCopied, tab: "script" },
+    { label: "Rate the must-haves", hint: `${mustDone} of ${mustTotal} ratings entered. A Must rated 2 or lower rules a vendor out.`, done: mustTotal > 0 && mustDone === mustTotal, tab: "req" },
+    { label: "Enter each vendor's quote", hint: `${quoted} of ${vs.length} vendors have costs.`, done: quoted === vs.length, tab: "cost" },
+    { label: "Download your decision report", hint: "A summary for partners, ready to print to PDF.", done: !!state.reportDone, tab: "report" }
+  ];
+}
+function obChecklist() {
+  if (state.isSample) return `<div class="ob-banner"><span><strong>You're looking at an example practice.</strong> Explore freely, then set up your own in about a minute.</span><button class="btn primary" type="button" id="obStart">Set up my evaluation</button></div>`;
+  if (state.obHidden) return "";
+  const steps = obSteps(), done = steps.filter(s => s.done).length;
+  if (done === steps.length) return "";
+  const next = steps.findIndex(s => !s.done);
+  return `<div class="panel" aria-labelledby="obTitle">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h2 id="obTitle">Getting started</h2>
+      <span class="num small muted">${done} of ${steps.length} done</span></div>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${steps.length}" aria-valuenow="${done}" aria-label="Setup progress"><i style="width:${100 * done / steps.length}%"></i></div>
+    <ol class="ob-steps">${steps.map((st, i) => `<li class="${st.done ? "done" : i === next ? "next" : ""}">
+      <span class="ob-dot" aria-hidden="true">${st.done ? `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2"><path d="M2.5 6.2l2.3 2.3 4.7-5"/></svg>` : ""}</span>
+      <div><div class="ob-label"><strong>${esc(st.label)}</strong><span class="sr-only">${st.done ? " (done)" : ""}</span></div><div class="muted small">${esc(st.hint)}</div></div>
+      ${st.done ? "<span></span>" : `<button class="btn${i === next ? " primary" : ""}" type="button" data-tab="${st.tab}">${i === next ? "Start" : "Go"}</button>`}</li>`).join("")}</ol>
+    <div><button class="btn" type="button" id="obHide">Hide checklist</button> <span class="muted small">Bring it back any time with Getting started at the top.</span></div>
+  </div>`;
+}
+function openWelcome() {
+  const ob = $("#ob"), mine = !state.isSample;
+  ob.innerHTML = `<div class="ob-backdrop"><div class="ob-dialog" role="dialog" aria-modal="true" aria-labelledby="obH">
+    <div class="ob-head"><span class="eyebrow">Welcome</span><h2 id="obH">Let's set up your EHR evaluation</h2>
+      <p class="muted small" style="margin:0">About a minute. Everything stays in this browser and no patient information is ever needed.</p>
+      <button class="ob-x" type="button" id="obClose" aria-label="Close">✕</button></div>
+    <form id="obForm">
+      <div class="ob-row">
+        <label class="field"><span>Practice name</span><input id="obName" required maxlength="80" autocomplete="organization" value="${mine ? esc(state.practice.name) : ""}" placeholder="e.g. Bayside Family Medicine"></label>
+        <label class="field"><span>Billing providers</span><input id="obProv" type="number" min="1" max="50" step="1" value="${mine ? state.practice.providers : 3}"></label>
+      </div>
+      <label class="field"><span>Specialty</span><select id="obSpec"><option value="">Other / use default priorities</option>${Object.entries(PRESETS).map(([k, v]) => `<option value="${k}"${mine && state.practice.specialty === k ? " selected" : ""}>${esc(v.label)}</option>`).join("")}</select></label>
+      <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px"><legend class="small muted" style="padding:0;margin-bottom:6px">Vendors you're considering (optional, add more later)</legend>
+        <div class="ob-vendors">${[0, 1, 2].map(i => `<input id="obV${i}" maxlength="60" aria-label="Vendor ${i + 1}" placeholder="Vendor ${i + 1}">`).join("")}</div></fieldset>
+      ${mine ? `<div class="ob-warn" role="note">This starts a new evaluation and replaces the one in this browser. To keep it, copy it from the Save / load tab first.</div>` : ""}
+      <div class="actions"><button class="btn primary" type="submit">Create my evaluation</button><button class="btn" type="button" id="obExplore">${mine ? "Cancel" : "Explore the example first"}</button></div>
+    </form></div></div>`;
+  ob.hidden = false;
+  openWelcome.prev = document.activeElement;
+  setTimeout(() => { const f = $("#obName"); if (f) f.focus(); }, 0);
+}
+function closeWelcome() {
+  const ob = $("#ob"); ob.hidden = true; ob.innerHTML = ""; obMark();
+  if (openWelcome.prev && openWelcome.prev.focus) try { openWelcome.prev.focus(); } catch (e) {}
+}
+function finishWelcome() {
+  const name = $("#obName").value.trim();
+  if (!name) { $("#obName").focus(); return toast("Give your practice a name"); }
+  const spec = $("#obSpec").value, prov = Math.max(1, Math.min(50, Math.round(+$("#obProv").value || 1)));
+  const names = [0, 1, 2].map(i => $("#obV" + i).value.trim()).filter(Boolean);
+  state = blankState();
+  state.practice.name = name; state.practice.providers = prov; state.practice.specialty = spec;
+  state.prio = spec ? { ...PRESETS[spec].prio } : {};
+  names.forEach((n, i) => { state.vendors[i].name = n; });
+  simCache = null; save(); closeWelcome(); tab = "decision"; render(); window.scrollTo({ top: 0 });
+  toast("Evaluation created. Follow the checklist");
+}
+document.addEventListener("submit", e => { if (e.target.id === "obForm") { e.preventDefault(); finishWelcome(); } });
+document.addEventListener("keydown", e => {
+  const ob = $("#ob"); if (ob.hidden) return;
+  if (e.key === "Escape") { e.preventDefault(); closeWelcome(); return; }
+  if (e.key === "Tab") {   // keep focus inside the dialog
+    const f = [...ob.querySelectorAll("button,input,select")].filter(x => !x.disabled);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  }
+});
+
+/* ---------------- Decision ---------------- */
+/* The leader is the eligible vendor that wins most often once uncertainty is counted.
+   If a different vendor has the higher score on today's ratings, the verdict says so. */
+function verdict(rows, sim) {
+  const elig = rows.filter(r => r.eligible);
+  const pct = vi => Math.round(100 * sim.wins[vi] / sim.N);
+  const byWin = [...elig].sort((a, b) => (sim.wins[b.vi] - sim.wins[a.vi]) || (b.overall - a.overall));
+  const leader = byWin[0], runner = byWin[1];
+  let lead = "No vendor passes every Must-have.", sub = "Every vendor fails at least one requirement marked Must. Revisit the failing items or widen the field.";
+  if (leader) {
+    const p = pct(leader.vi);
+    const strength = p >= 85 ? "clear lead" : p >= 60 ? "lead, but it's not settled" : "slight edge, and it's close";
+    lead = `${leader.name}: ${strength}.`;
+    sub = `It wins ${p}% of ${sim.N.toLocaleString()} simulated scenarios where your priorities shift by up to ±50%, unverified ratings vary as much as their evidence allows, and costs overrun by up to 25%${state.practice.useSavings && state.tasks.length ? ", and staff-time savings come in at 60–120% of your estimate" : ""}.` +
+      (runner ? ` ${runner.name} wins ${pct(runner.vi)}%.` : "");
+    if (elig[0] && elig[0] !== leader) sub += ` On today's ratings ${elig[0].name} scores slightly higher (${elig[0].overall.toFixed(1)} vs ${leader.overall.toFixed(1)}), but it wins less often once uncertainty is counted.`;
+    const cheapOut = rows.find(r => !r.eligible && r.tco.pv < leader.tco.pv);
+    if (cheapOut) sub += ` ${cheapOut.name} is ${kmoney(leader.tco.pv - cheapOut.tco.pv)} cheaper over ${state.practice.years} years but fails a Must-have.`;
+  }
+  return { leader, runner, lead, sub, pct };
+}
+function viewDecision() {
+  const rows = rank(state);
+  if (!simCache) simCache = simulate(state);
+  const sim = simCache;
+  const elig = rows.filter(r => r.eligible);
+  const { leader, lead, sub, pct } = verdict(rows, sim);
+  const cards = rows.map((r, i) => {
+    const status = !r.eligible ? `<span class="chip bad">Fails a Must</span>` :
+      (r === leader ? `<span class="chip ok">Leading</span>` : (r.ko.unverified.length ? `<span class="chip warn">Musts unverified</span>` : `<span class="chip neutral">In contention</span>`));
+    const why = [];
+    r.ko.failed.forEach(c => why.push(`Fails Must: ${esc(c.name)}`));
+    if (r.ko.unverified.length) why.push(`${r.ko.unverified.length} Must item(s) not yet checked`);
+    if (r.confidence < 60) why.push(`Only ${Math.round(r.confidence)}% of the score rests on demos or references`);
+    const mm = feeMismatches(state, r.vi).length;
+    if (mm) why.push(`Priced ${mm} of your codes differently from the fee schedule in the demo`);
+    const cp = chplParse(state.vendors[r.vi].chplId);
+    if (prioOf(state, "chpl") === "must") { if (!cp) why.push("No CHPL product number recorded"); else if (!cp.ok) why.push("CHPL product number isn't valid"); }
+    if (state.vendors[r.vi].cost.escalator > 5) why.push(`Price escalator ${state.vendors[r.vi].cost.escalator}%/yr`);
+    return `<article class="vcard${r.eligible ? "" : " out"}">
+      <div class="vhead"><div><div class="rankno">#${i + 1}</div><h3>${esc(r.name)}</h3><div class="muted small">${esc(state.vendors[r.vi].note)}</div></div>${status}</div>
+      <div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap">
+        <div><div class="eyebrow">Overall</div><div class="big">${r.eligible ? r.overall.toFixed(0) : "—"}</div></div>
+        <div><div class="eyebrow">Win rate</div><div class="big">${r.eligible ? pct(r.vi) + "%" : "0%"}</div></div>
+      </div>
+      <div><div class="eyebrow" style="display:flex;justify-content:space-between"><span>Fit</span><span class="num">${r.fit.toFixed(0)}/100</span></div><div class="bar"><i style="width:${r.fit}%"></i></div></div>
+      <div><div class="eyebrow" style="display:flex;justify-content:space-between"><span>Evidence behind it</span><span class="num">${Math.round(r.confidence)}%</span></div><div class="bar c"><i style="width:${r.confidence}%"></i></div></div>
+      <dl class="kv"><dt>${state.practice.years}-yr cost (present value)</dt><dd class="num">${money(r.tco.pv)}</dd>
+        <dt>Per provider per year</dt><dd class="num">${money(r.tco.perProviderYear)}</dd>
+        <dt>Go-live revenue dip</dt><dd class="num">${money(r.tco.goLive)}</dd>
+        ${r.sav.measured ? `<dt>Staff time saved / yr</dt><dd class="num">${money(r.sav.annual)}</dd><dt>Payback</dt><dd class="num">${paybackTxt(r.sav.payback)}</dd>` : ""}</dl>
+      ${why.length ? `<ul class="why">${why.map(w => `<li>${w}</li>`).join("")}</ul>` : ""}
+    </article>`;
+  }).join("");
+  const shortlist = elig.slice(0, 2).map(r => r.vi);
+  const qs = openQuestions(state, shortlist).slice(0, 7);
+  const cw = state.practice.costWeight;
+  return `<section class="view">
+    ${obChecklist()}
+    <div class="verdict"><span class="eyebrow">Recommendation</span><p class="lead">${esc(lead)}</p><p>${esc(sub)}</p></div>
+    <div class="panel"><div class="slider"><label for="cw"><strong>Fit vs. cost</strong></label>
+      <input id="cw" type="range" min="0" max="60" step="5" value="${cw}">
+      <span class="num small">${100 - cw}% fit · ${cw}% cost</span></div>
+      <span class="muted small">Overall = fit score blended with cost score (cheapest eligible vendor = 100${state.practice.useSavings && state.tasks.length ? ", net of staff-time savings" : ""}). Must-have failures are excluded no matter how cheap.</span></div>
+    <div class="grid-cards">${cards}</div>
+    <div class="two">
+      <div class="panel"><h2>Fit against cost</h2>${scatter(rows, sim)}<span class="muted small">Up and to the left is better. Circle size is win rate. Crossed circles fail a Must.</span></div>
+      <div class="panel"><h2>What could change the answer</h2>
+        <span class="muted small">High-priority items where the top ${shortlist.length || ""} rest on a vendor's word or nothing. Check these next, in this order.</span>
+        <ul class="qlist">${qs.length ? qs.map(q => `<li><span class="sev ${q.pr}"></span><div><strong>${esc(q.c.name)}</strong> <span class="muted small">(${PRIO_LABEL[q.pr]})</span><div class="muted small">Unproven for ${q.who.map(vi => esc(state.vendors[vi].name)).join(" and ")}</div></div></li>`).join("") : `<li><span></span><span class="muted">Every High and Must item is backed by a demo or reference.</span></li>`}</ul>
+        <button class="btn" type="button" data-tab="script">Turn these into a demo script</button>
+      </div>
+    </div>
+  </section>`;
+}
+function scatter(rows, sim) {
+  const W = 520, H = 300, L = 54, R = 20, T = 16, B = 40;
+  const pvs = rows.map(r => r.tco.pv), lo = Math.min(...pvs) * 0.85, hi = Math.max(...pvs) * 1.1;
+  const x = v => L + (v - lo) / (hi - lo) * (W - L - R), y = f => T + (1 - f / 100) * (H - T - B);
+  const ticksY = [0, 25, 50, 75, 100];
+  const step = Math.pow(10, Math.floor(Math.log10((hi - lo) / 3))); const s2 = (hi - lo) / step > 6 ? step * 2 : step;
+  const ticksX = []; for (let v = Math.ceil(lo / s2) * s2; v <= hi; v += s2) ticksX.push(v);
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Fit score against ${state.practice.years}-year cost for each vendor">`;
+  ticksY.forEach(t => g += `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${t}</text>`);
+  ticksX.forEach(t => g += `<text x="${x(t)}" y="${H - B + 18}" text-anchor="middle">${kmoney(t)}</text>`);
+  g += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">${state.practice.years}-year cost, present value</text>`;
+  rows.forEach(r => {
+    const rad = 6 + 18 * Math.sqrt(sim.wins[r.vi] / sim.N), cx = x(r.tco.pv), cy = y(r.fit);
+    const col = r.eligible ? "var(--accent)" : "var(--bad)";
+    g += `<circle cx="${cx}" cy="${cy}" r="${rad}" fill="${col}" fill-opacity="${r.eligible ? .22 : .12}" stroke="${col}" stroke-width="1.5"/>`;
+    if (!r.eligible) g += `<line x1="${cx - rad * .7}" y1="${cy - rad * .7}" x2="${cx + rad * .7}" y2="${cy + rad * .7}" stroke="${col}" stroke-width="1.5"/>`;
+    const anchor = cx > W * 0.7 ? "end" : "start", dx = anchor === "end" ? -rad - 6 : rad + 6;
+    g += `<text x="${cx + dx}" y="${cy + 4}" text-anchor="${anchor}" style="fill:var(--ink);font-family:var(--body);font-size:12px;font-weight:600">${esc(r.name)}</text>`;
+  });
+  return g + `</svg>`;
+}
+
+/* ---------------- Requirements ---------------- */
+function presetPicker() {
+  const cur = state.practice.specialty || "";
+  return `<label class="field" style="max-width:320px"><span>Specialty preset</span><select id="preset" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)">
+    <option value=""${cur ? "" : " selected"}>Defaults (no preset)</option>${Object.entries(PRESETS).map(([k, v]) => `<option value="${k}"${k === cur ? " selected" : ""}>${esc(v.label)}</option>`).join("")}</select></label>`;
+}
+function viewReq() {
+  const vs = state.vendors;
+  const scoreOpts = cur => `<option value="">–</option>` + [0, 1, 2, 3, 4, 5].map(n => `<option value="${n}"${cur === n ? " selected" : ""}>${n}</option>`).join("");
+  const evOpts = cur => Object.entries(EVID).map(([k, v]) => `<option value="${k}"${cur === k ? " selected" : ""} title="${v.label}">${v.short}</option>`).join("");
+  let body = "";
+  for (const g of GROUPS) {
+    const items = CRITERIA.filter(c => c.g === g.id && (!filterHigh || PRIO[prioOf(state, c.id)] >= 3));
+    if (!items.length) continue;
+    body += `<tr class="grp"><td colspan="${2 + vs.length}">${esc(g.name)}</td></tr>`;
+    for (const c of items) {
+      const pr = prioOf(state, c.id);
+      body += `<tr><td class="crit"><strong>${esc(c.name)}</strong><div class="hint">${esc(c.hint)}</div>${c.cite ? `<div class="cite">${esc(c.cite)}</div>` : ""}</td>
+        <td><select class="prio" data-prio="${c.id}" aria-label="Priority for ${esc(c.name)}">${Object.keys(PRIO).map(k => `<option value="${k}"${k === pr ? " selected" : ""}>${PRIO_LABEL[k]}</option>`).join("")}</select></td>` +
+        vs.map((v, vi) => { const x = cell(state, vi, c.id); const fail = pr === "must" && x.s != null && x.s <= 2;
+          return `<td class="vc${fail ? " fail" : ""}"><select class="sc" data-score="${vi}|${c.id}" aria-label="${esc(v.name)} score for ${esc(c.name)}">${scoreOpts(x.s)}</select> <select class="ev" data-ev="${vi}|${c.id}" aria-label="${esc(v.name)} evidence for ${esc(c.name)}">${evOpts(x.e)}</select></td>`; }).join("") + `</tr>`;
+    }
+  }
+  return `<section class="view">
+    <div class="panel"><h2>Requirements and ratings</h2>
+      <p class="muted small" style="margin:0;max-width:80ch">Set each item's priority, then rate each vendor 0–5 and record how you know. A Must rated 2 or lower knocks the vendor out. A specialty preset sets suggested priorities for your field; choosing one replaces any priorities you changed by hand. Ratings that rest on a vendor's word count for less certainty in the simulation than ones you saw yourself.</p>
+      ${presetPicker()}
+      <div class="filters"><label><input type="checkbox" id="fh"${filterHigh ? " checked" : ""}> Only Must and High</label>
+      <div class="legend">${Object.values(EVID).map(e => `<span><strong>${e.short}</strong> ${e.label}</span>`).join("")}</div></div></div>
+    <div class="scroll"><table><thead><tr><th>Requirement</th><th>Priority</th>${vs.map(v => `<th>${esc(v.name)}<br><span style="text-transform:none;letter-spacing:0">Score · Evidence</span></th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>
+  </section>`;
+}
+
+/* ---------------- Costs ---------------- */
+const UPF = [["license", "One-time license"], ["implementation", "Implementation / setup"], ["migration", "Data migration"], ["training", "Training"], ["hardware", "Hardware (servers, scanners, tablets)"], ["interfaces", "Interfaces (lab, imaging, HIE)"]];
+const ANN = [["support", "Support & maintenance / yr"], ["clearinghouse", "Clearinghouse & per-claim fees / yr"], ["erx", "eRx, fax, texting fees / yr"], ["other", "Other recurring / yr"]];
+function viewCost() {
+  const vs = state.vendors, p = state.practice;
+  const inp = (vi, path, val, step = 100) => `<input type="number" inputmode="decimal" step="${step}" min="0" data-cost="${vi}|${path}" value="${val}" aria-label="${path}">`;
+  const row = (label, fn, cls = "") => `<tr class="${cls}"><td>${label}</td>${vs.map((v, vi) => `<td>${fn(v, vi)}</td>`).join("")}</tr>`;
+  const T = vs.map((_, vi) => tco(state, vi));
+  let rows = `<tr class="grp"><td colspan="${1 + vs.length}">Up-front</td></tr>`;
+  UPF.forEach(([k, l]) => rows += row(l, (v, vi) => inp(vi, "upfront." + k, v.cost.upfront[k])));
+  rows += `<tr class="grp"><td colspan="${1 + vs.length}">Recurring</td></tr>`;
+  rows += row("Subscription per provider / month", (v, vi) => inp(vi, "perProviderMonthly", v.cost.perProviderMonthly, 10));
+  ANN.forEach(([k, l]) => rows += row(l, (v, vi) => inp(vi, "annual." + k, v.cost.annual[k])));
+  rows += row("Annual price increase %", (v, vi) => inp(vi, "escalator", v.cost.escalator, 0.5));
+  rows += `<tr class="grp"><td colspan="${1 + vs.length}">Hidden costs most comparisons miss</td></tr>`;
+  rows += row("Go-live slowdown (weeks)", (v, vi) => inp(vi, "goLiveWeeks", v.cost.goLiveWeeks, 1));
+  rows += row("Visit volume lost during go-live %", (v, vi) => inp(vi, "goLiveDip", v.cost.goLiveDip, 5));
+  rows += row("Exit / data extraction fee at end", (v, vi) => inp(vi, "exitCost", v.cost.exitCost));
+  rows += `<tr class="grp"><td colspan="${1 + vs.length}">Results</td></tr>`;
+  rows += row("Up-front total", (v, vi) => `<span class="num">${money(T[vi].upfront)}</span>`, "out");
+  rows += row("Go-live lost revenue", (v, vi) => `<span class="num">${money(T[vi].goLive)}</span>`, "out");
+  rows += row("Year-1 recurring", (v, vi) => `<span class="num">${money(T[vi].annual0)}</span>`, "out");
+  rows += row(`Total paid over ${p.years} yrs`, (v, vi) => `<span class="num">${money(T[vi].nominal)}</span>`, "out");
+  rows += row(`Present value over ${p.years} yrs`, (v, vi) => `<span class="num">${money(T[vi].pv)}</span>`, "total");
+  rows += row("Per provider per year", (v, vi) => `<span class="num">${money(T[vi].perProviderYear)}</span>`, "out");
+  return `<section class="view">
+    <div class="panel"><h2>Total cost of ownership</h2>
+      <p class="muted small" style="margin:0;max-width:80ch">Up-front costs and go-live losses are counted today; recurring costs grow by each vendor's price increase and are discounted at ${p.rate}% a year; the exit fee is discounted from year ${p.years}. With no escalator, go-live or exit fee this reproduces the original toolkit's figure exactly. Practice inputs are on the Vendors & practice tab.${state.practice.useFeeRev && feeRevenue(state).total > 0 ? ` Go-live losses use your fee-schedule revenue (${money(feeRevenue(state).total)}/yr) from the Reimbursement tab.` : ""}</p></div>
+    <div class="scroll costgrid"><table><thead><tr><th>Cost line ($)</th>${vs.map(v => `<th>${esc(v.name)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>
+  </section>`;
+}
+
+/* ---------------- Reimbursement ---------------- */
+const CMS_PFS = "https://www.cms.gov/medicare/physician-fee-schedule/search";
+function viewFees() {
+  const vs = state.vendors, fr = feeRevenue(state), p = state.practice;
+  const meta = state.feeMeta;
+  const rows = fr.rows.map(({ r, price, rev }, i) => {
+    const f = state.fees[feeKey(r.code, r.mod)];
+    const vcells = vs.map((v, vi) => {
+      const shown = r.shown ? r.shown[vi] : null;
+      let cls = "";
+      if (price != null && shown != null && shown !== "") cls = Math.abs(+shown - price) > Math.max(0.01, price * 0.01) ? " fail" : " match";
+      return `<td class="vc${cls}"><input type="number" step="0.01" min="0" id="fs_${i}_${vi}" data-shown="${i}|${vi}" value="${shown ?? ""}" aria-label="${esc(v.name)} price for ${esc(r.code)}"></td>`;
+    }).join("");
+    return `<tr><td><input type="text" class="code" id="fc_${i}" data-code="${i}|code" value="${esc(r.code)}" aria-label="Code"></td>
+      <td><input type="text" id="fm_${i}" data-code="${i}|mod" value="${esc(r.mod)}" aria-label="Modifier" style="min-width:48px"></td>
+      <td class="small">${f ? esc(f.d) : `<span class="muted">${r.code ? "Not in loaded schedule" : ""}</span>`}</td>
+      <td><select id="fp_${i}" data-code="${i}|pos" aria-label="Setting"><option value="nf"${r.pos !== "f" ? " selected" : ""}>Office</option><option value="f"${r.pos === "f" ? " selected" : ""}>Facility</option></select></td>
+      <td><input type="number" step="10" min="0" id="fv_${i}" data-code="${i}|vol" value="${r.vol ?? 0}" aria-label="Annual volume"></td>
+      <td class="r num">${price == null ? "—" : money2(price)}</td><td class="r num">${money(rev)}</td>${vcells}
+      <td><button class="btn" type="button" data-delcode="${i}" aria-label="Remove ${esc(r.code)}">×</button></td></tr>`;
+  }).join("");
+  const mm = vs.map((v, vi) => ({ v, n: feeMismatches(state, vi) }));
+  return `<section class="view">
+    <div class="panel"><h2>Fee schedule</h2>
+      <p class="muted small" style="margin:0;max-width:80ch">Load the Medicare Physician Fee Schedule for your locality, list the codes you bill most, and check that each vendor's system prices them the same way. Export the file from the <a href="${CMS_PFS}" target="_blank" rel="noopener">CMS PFS Look-up Tool</a> (.xls, .xlsx or .csv). The file is read in this browser and is not uploaded anywhere.</p>
+      <div class="drop"><label class="btn primary" for="feeFile">Load fee schedule file</label><input type="file" id="feeFile" accept=".xls,.xlsx,.csv,.txt">
+        <span class="small ${meta ? "" : "muted"}">${meta ? esc(meta.source) + ` · ${meta.rows.toLocaleString()} rows` : "No fee schedule loaded"}</span></div></div>
+    <div class="panel"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h2>Your codes</h2><button class="btn" type="button" id="addCode">Add code</button></div>
+      <p class="muted small" style="margin:0;max-width:80ch">Enter yearly volume per code. In each vendor column, type the allowed amount their system showed in the demo after loading your schedule. Green matches the schedule; red is more than 1% off, which usually means a stale or wrongly loaded fee table.</p>
+      <div class="scroll fees"><table><thead><tr><th>Code</th><th>Mod</th><th>Description</th><th>Setting</th><th>Volume / yr</th><th>Fee</th><th>Revenue / yr</th>${vs.map(v => `<th>${esc(v.name)} showed</th>`).join("")}<th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="${8 + vs.length}" class="muted">No codes yet. Add the 10–20 codes that make up most of your billing.</td></tr>`}
+        <tr class="grp"><td colspan="6">Expected revenue at ${fr.mult * 100}% of Medicare</td><td class="r num">${money(fr.total)}</td>${vs.map((v, vi) => `<td class="small">${mm[vi].n.length ? `<span class="chip bad">${mm[vi].n.length} mismatch${mm[vi].n.length > 1 ? "es" : ""}</span>` : `<span class="chip ok">No mismatches</span>`}</td>`).join("")}<td></td></tr></tbody></table></div>
+      <div class="fields"><label class="field"><span>Average payer rate (% of Medicare)</span><input type="number" step="5" min="0" id="p_payerMult" data-practice="payerMult" value="${p.payerMult ?? 100}"></label></div>
+      <label class="check" style="border:0;padding:0"><input type="checkbox" id="useFeeRev"${p.useFeeRev ? " checked" : ""}><div><strong>Use this revenue for go-live slowdown cost</strong><p>Replaces providers × visits × collections per visit on the Costs tab. Turn on only when your code list covers most of your billing.</p></div></label>
+    </div>
+  </section>`;
+}
+const money2 = n => "$" + (+n).toFixed(2);
+function norm(h) { return String(h ?? "").toUpperCase().replace(/<[^>]*>/g, "").replace(/[^A-Z0-9]+/g, " ").trim(); }
+function parseFeeFile(file) {
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const wb = XLSX.read(new Uint8Array(rd.result), { type: "array" });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: "" });
+      const hi = rows.findIndex(r => r.some(c => norm(c).startsWith("HCPCS")));
+      if (hi < 0) throw new Error("no header");
+      const H = rows[hi].map(norm), find = test => H.findIndex(test);
+      const ci = find(h => h.startsWith("HCPCS")), mi = find(h => h === "MODIFIER" || h === "MOD"),
+        di = find(h => h.includes("DESCRIPTION")), nfi = find(h => h === "NON FACILITY PRICE" || h === "NON FACILITY FEE"),
+        fi = find(h => h === "FACILITY PRICE" || h === "FACILITY FEE"), cfi = find(h => h === "CONV FACT" || h.startsWith("CONVERSION FACTOR")),
+        li = find(h => h.includes("LOCALITY"));
+      if (nfi < 0 && fi < 0) throw new Error("no price columns");
+      const num = v => { const x = parseFloat(String(v).replace(/[$,]/g, "")); return isFinite(x) ? x : null; };
+      const fees = {}; let n = 0, cf = null, loc = null;
+      for (const r of rows.slice(hi + 1)) {
+        const code = String(r[ci] ?? "").trim(); if (!code) continue;
+        const k = feeKey(code, mi >= 0 ? r[mi] : "");
+        if (!fees[k]) { fees[k] = { d: di >= 0 ? String(r[di]).trim() : "", nf: nfi >= 0 ? num(r[nfi]) : null, f: fi >= 0 ? num(r[fi]) : null }; n++; }
+        if (cf == null && cfi >= 0) cf = num(r[cfi]); if (loc == null && li >= 0 && r[li] !== "") loc = String(r[li]);
+      }
+      state.fees = fees;
+      state.feeMeta = { source: `${file.name}${loc ? " · locality " + loc : ""}${cf ? " · conversion factor $" + cf.toFixed(4) : ""}`, rows: n };
+      changed(); toast(`Loaded ${n.toLocaleString()} fee rows`);
+    } catch (err) { toast("Couldn't find HCPCS and price columns in that file"); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+/* ---------------- Savings ---------------- */
+const paybackTxt = m => !isFinite(m) ? "Never" : m < 1 ? "< 1 month" : m > 120 ? "> 10 years" : Math.round(m) + " months";
+const pctTxt = x => (x >= 0 ? "+" : "") + Math.round(x * 100) + "%";
+function viewSavings() {
+  const vs = state.vendors, p = state.practice, T = state.tasks;
+  const S = vs.map((_, vi) => savings(state, vi)), C = vs.map((_, vi) => tco(state, vi));
+  const rows = T.map((t, i) => `<tr>
+      <td><input type="text" id="tn_${i}" data-task="${i}|name" value="${esc(t.name)}" aria-label="Task" style="min-width:220px;font-family:var(--body)"></td>
+      <td><input type="number" step="1" min="0" id="tp_${i}" data-task="${i}|perDay" value="${t.perDay}" aria-label="Times per day"></td>
+      <td><input type="number" step="0.5" min="0" id="tm_${i}" data-task="${i}|minNow" value="${t.minNow}" aria-label="Minutes today"></td>
+      ${vs.map((v, vi) => { const m = t.min ? t.min[vi] : null; const cls = m == null || m === "" ? "" : (+m < +t.minNow ? " match" : (+m > +t.minNow ? " fail" : ""));
+        return `<td class="vc${cls}"><input type="number" step="0.5" min="0" id="tv_${i}_${vi}" data-taskmin="${i}|${vi}" value="${m ?? ""}" aria-label="${esc(v.name)} minutes for ${esc(t.name)}"></td>`; }).join("")}
+      <td><button class="btn" type="button" data-deltask="${i}" aria-label="Remove ${esc(t.name)}">×</button></td></tr>`).join("");
+  const res = (label, fn, cls = "out") => `<tr class="${cls}"><td colspan="3">${label}</td>${vs.map((v, vi) => `<td class="r num">${fn(vi)}</td>`).join("")}<td></td></tr>`;
+  return `<section class="view">
+    <div class="panel"><h2>Staff-time savings</h2>
+      <p class="muted small" style="margin:0;max-width:80ch">List the manual tasks your staff repeat every day and how long each takes now. During each demo, have your own staff do the task and time it; enter those minutes in the vendor's column. Green is faster than today, red is slower. Leave a cell blank if you didn't time it.</p>
+      <div class="fields">
+        <label class="field"><span>Staff cost per hour, incl. benefits ($)</span><input type="number" step="1" min="0" id="p_wage" data-practice="wage" value="${p.wage}"></label>
+        <label class="field"><span>Working days per year</span><input type="number" step="5" min="1" id="p_workDays" data-practice="workDays" value="${p.workDays}"></label>
+        <label class="field"><span>What you pay today for current system ($/yr)</span><input type="number" step="500" min="0" id="p_currentAnnual" data-practice="currentAnnual" value="${p.currentAnnual}"></label>
+      </div></div>
+    <div class="panel"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h2>Tasks</h2><button class="btn" type="button" id="addTask">Add task</button></div>
+      <div class="scroll fees"><table><thead><tr><th>Task</th><th>Times / day</th><th>Minutes today</th>${vs.map(v => `<th>${esc(v.name)} minutes</th>`).join("")}<th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="${4 + vs.length}" class="muted">No tasks yet. Start with intake, faxed records, eligibility, refills, prior auths and claim rework.</td></tr>`}
+      <tr class="grp"><td colspan="${4 + vs.length}">Results</td></tr>
+      ${res("Staff hours saved per year", vi => Math.round(S[vi].hours).toLocaleString())}
+      ${res("Labor saved per year", vi => money(S[vi].annual))}
+      ${res("Up-front + go-live investment", vi => money(C[vi].upfront + C[vi].goLive))}
+      ${res("Payback", vi => paybackTxt(S[vi].payback))}
+      ${res("2-year return", vi => pctTxt(S[vi].roi2))}
+      ${res(`Net ${p.years}-year result after savings (present value)`, vi => S[vi].net <= 0 ? "Saves " + money(-S[vi].net) : "Costs " + money(S[vi].net), "total")}
+      </tbody></table></div>
+      <p class="muted small" style="margin:0;max-width:80ch">Payback = up-front and go-live cost ÷ monthly (labor saved + current system cost you stop paying − new recurring cost). Savings only count where you timed the task.</p>
+      <label class="check" style="border:0;padding:0"><input type="checkbox" id="useSavings"${p.useSavings ? " checked" : ""}><div><strong>Count savings in the overall score</strong><p>Ranks cost by net cost after savings. The simulation varies savings between 60% and 120% of your estimate, since demo timings tend to be optimistic.</p></div></label>
+    </div>
+  </section>`;
+}
+
+/* ---------------- Vendors & practice ---------------- */
+function viewVendors() {
+  const p = state.practice;
+  const f = (k, l, step = 1) => `<label class="field"><span>${l}</span><input type="number" step="${step}" min="0" id="p_${k}" data-practice="${k}" value="${p[k]}"></label>`;
+  return `<section class="view">
+    <div class="panel"><h2>Your practice</h2>
+      <div class="fields"><label class="field"><span>Practice name</span><input id="p_name" data-practice="name" value="${esc(p.name)}"></label>
+      ${f("providers", "Billing providers")}${f("visitsPerDay", "Visits per provider per day")}${f("revPerVisit", "Average collections per visit ($)", 5)}${f("rate", "Discount rate (%)", 0.5)}${f("years", "Years to compare", 1)}</div>${presetPicker()}</div>
+    <div class="panel"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h2>Vendors</h2>
+      <button class="btn" type="button" id="addV"${state.vendors.length >= 5 ? " disabled" : ""}>Add vendor</button></div>
+      <div class="vendor-edit">${state.vendors.map((v, vi) => `<div class="panel" style="padding:14px">
+        <label class="field"><span>Name</span><input id="vn_${vi}" data-vname="${vi}" value="${esc(v.name)}"></label>
+        <label class="field"><span>Notes</span><input id="vt_${vi}" data-vnote="${vi}" value="${esc(v.note)}"></label>
+        <label class="field"><span>CHPL product number</span><input id="vc_${vi}" data-vchpl="${vi}" value="${esc(v.chplId || "")}" placeholder="15.04.04.1234.Abcd.01.00.1.250101" style="font-family:var(--mono);font-size:.82rem"></label>
+        ${chplLine(v)}
+        <button class="btn" type="button" data-del="${vi}"${state.vendors.length <= 2 ? " disabled" : ""}>Remove</button></div>`).join("")}</div>
+      <p class="muted small" style="margin:0;max-width:80ch">Ask each vendor for the CHPL product number of the exact version you'd run. The number is checked for format here and its certification date read from it; confirm the listing is active, and see its criteria and any surveillance actions, on <a href="https://chpl.healthit.gov/#/search" target="_blank" rel="noopener">chpl.healthit.gov</a> (paste the number into the search).</p></div>
+  </section>`;
+}
+
+function chplLine(v) {
+  const c = chplParse(v.chplId);
+  if (!c) return `<span class="small muted">No CHPL number yet</span>`;
+  if (!c.ok) return `<span class="chip bad" style="width:max-content">Not a valid CHPL product number</span>`;
+  const age = (Date.now() - Date.parse(c.certified)) / (365.25 * 864e5);
+  return `<div class="small" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="chip ${age > 3 ? "warn" : "ok"}">Certified ${c.certified}</span><span class="muted">ICS ${c.ics} · version ${esc(c.version)}</span>
+    <button class="btn" type="button" data-copychpl="${esc(c.id)}" style="padding:2px 8px;font-size:.78rem">Copy number</button></div>`;
+}
+
+/* ---------------- Demo script ---------------- */
+function scriptText() {
+  const out = [];
+  state.vendors.forEach((v, vi) => {
+    if (knockouts(state, vi).failed.length) return;
+    const items = CRITERIA.filter(c => PRIO[prioOf(state, c.id)] >= 3 && cell(state, vi, c.id).e !== "demo")
+      .sort((a, b) => PRIO[prioOf(state, b.id)] - PRIO[prioOf(state, a.id)]);
+    const codes = (state.codes || []).filter(r => r.code).map(r => (r.code + (r.mod ? "-" + r.mod : "")).toUpperCase());
+    const tk = (state.tasks || []).filter(t => t.name).map(t => t.name.toLowerCase());
+    if (tk.length) items.unshift({ id: "_time", ask: `Let our staff do these tasks in your system while we time them: ${tk.join("; ")}.`, _prio: "high" });
+    if (codes.length) items.unshift({ id: "_fees", ask: `Load our current fee schedule and show the allowed amount your system calculates for: ${codes.join(", ")}.`, _prio: "high" });
+    out.push({ vi, name: v.name, items });
+  });
+  return out;
+}
+function viewScript() {
+  const s = scriptText();
+  return `<section class="view">
+    <div class="panel"><h2>Scripted demo requests</h2>
+      <p class="muted small" style="margin:0;max-width:80ch">Built from your Must and High items that you haven't yet seen working. Send each vendor its list before the demo and ask them to show each step live with your own sample patient, not slides. Vendors that fail a Must are left out.</p>
+      <div><button class="btn primary" type="button" id="copyScript">Copy all scripts</button></div></div>
+    <div class="grid-cards">${s.map(x => `<div class="panel script"><h3>${esc(x.name)}</h3>${x.items.length ? `<ol>${x.items.map(c => `<li>${esc(c.ask)}<span class="tag">${PRIO_LABEL[c._prio || prioOf(state, c.id)].toUpperCase()}</span></li>`).join("")}</ol>` : `<p class="muted">Everything Must and High has been seen in a demo.</p>`}</div>`).join("")}</div>
+  </section>`;
+}
+
+/* ---------------- Contract ---------------- */
+function viewContract() {
+  state.contract = state.contract || {};
+  const auto = [];
+  state.vendors.forEach(v => {
+    if (v.cost.escalator > 5) auto.push(`${v.name} raises prices ${v.cost.escalator}% a year. Over ${state.practice.years} years that compounds to +${Math.round((Math.pow(1 + v.cost.escalator / 100, state.practice.years - 1) - 1) * 100)}% by the final year.`);
+    if (v.cost.exitCost > 0) auto.push(`${v.name} charges ${money(v.cost.exitCost)} to hand back your data. Negotiate it into the up-front price or cap it.`);
+  });
+  return `<section class="view">
+    ${auto.length ? `<div class="panel"><h2>Flags from your numbers</h2><ul class="qlist">${auto.map(a => `<li><span class="sev"></span><span>${esc(a)}</span></li>`).join("")}</ul></div>` : ""}
+    <div class="panel"><h2>Before you sign</h2>
+      ${CONTRACT.map(c => `<label class="check"><input type="checkbox" id="k_${c.id}" data-k="${c.id}"${state.contract[c.id] ? " checked" : ""}><div><strong>${esc(c.t)}</strong><p>${esc(c.d)}</p></div></label>`).join("")}
+      <span class="muted small">This is a negotiation checklist, not legal advice. Have a healthcare attorney review the final agreement.</span></div>
+  </section>`;
+}
+
+/* ---------------- Decision report (Pro, produced by hand during the pilot) ---------------- */
+function reportBody() {
+  const p = state.practice, rows = rank(state);
+  if (!simCache) simCache = simulate(state);
+  const sim = simCache, { leader, lead, sub, pct } = verdict(rows, sim);
+  rows.sort((a, b) => (b.eligible - a.eligible) || (sim.wins[b.vi] - sim.wins[a.vi]) || (b.overall - a.overall));
+  const today = new Date().toISOString().slice(0, 10);
+  const flags = [];
+  state.vendors.forEach(v => {
+    if (v.cost.escalator > 5) flags.push(`${v.name} raises prices ${v.cost.escalator}% a year.`);
+    if (v.cost.exitCost > 0) flags.push(`${v.name} charges ${money(v.cost.exitCost)} to return your data.`);
+  });
+  const shortlist = rows.filter(r => r.eligible).slice(0, 2).map(r => r.vi);
+  const qs = openQuestions(state, shortlist).slice(0, 10);
+  const signed = CONTRACT.filter(c => (state.contract || {})[c.id]);
+  const T = (h, b) => `<table><thead><tr>${h.map(x => `<th>${x}</th>`).join("")}</tr></thead><tbody>${b}</tbody></table>`;
+  return `<div class="rpt">
+    <p class="rpt-eyebrow">EHR selection decision report · ${esc(today)}${state.isSample ? " · EXAMPLE DATA" : ""}</p>
+    <h1>${esc(p.name)}</h1>
+    <p class="rpt-meta">${p.providers} billing providers · ${state.vendors.length} vendors evaluated · ${p.years}-year horizon · ${p.rate}% discount rate · ${100 - p.costWeight}% fit / ${p.costWeight}% cost${p.specialty && PRESETS[p.specialty] ? " · " + esc(PRESETS[p.specialty].label) + " priorities" : ""}</p>
+    <h2>Recommendation</h2>
+    <p class="rpt-lead">${esc(lead)}</p><p>${esc(sub)}</p>
+    <h2>Vendor comparison</h2>
+    ${T(["Vendor", "Status", "Win rate", "Overall", "Fit", "Evidence", p.years + "-yr cost (PV)", "Per provider / yr", "Payback"],
+      rows.map(r => `<tr><td>${esc(r.name)}</td><td>${!r.eligible ? "Fails a Must" : r === leader ? "Recommended" : "Eligible"}</td>
+        <td class="n">${r.eligible ? pct(r.vi) + "%" : "—"}</td><td class="n">${r.eligible ? r.overall.toFixed(0) : "—"}</td><td class="n">${r.fit.toFixed(0)}</td><td class="n">${Math.round(r.confidence)}%</td>
+        <td class="n">${money(r.tco.pv)}</td><td class="n">${money(r.tco.perProviderYear)}</td><td class="n">${r.sav.measured ? paybackTxt(r.sav.payback) : "—"}</td></tr>`).join(""))}
+    <p class="rpt-note">Win rate: share of ${sim.N.toLocaleString()} simulations each vendor wins. Evidence: share of the weighted score backed by a demo or reference rather than the vendor's word.</p>
+    <h2>Cost breakdown</h2>
+    ${T(["Vendor", "Up-front", "Go-live lost revenue", "Year-1 recurring", "Annual increase", "Exit fee", "Total paid " + p.years + " yrs"],
+      rows.map(r => { const c = state.vendors[r.vi].cost; return `<tr><td>${esc(r.name)}</td><td class="n">${money(r.tco.upfront)}</td><td class="n">${money(r.tco.goLive)}</td><td class="n">${money(r.tco.annual0)}</td><td class="n">${c.escalator}%</td><td class="n">${money(+c.exitCost || 0)}</td><td class="n">${money(r.tco.nominal)}</td></tr>`; }).join(""))}
+    <h2>Must-have results</h2>
+    <ul>${rows.map(r => `<li><strong>${esc(r.name)}:</strong> ${r.ko.failed.length ? "fails " + r.ko.failed.map(c => esc(c.name)).join(", ") : "passes every Must checked"}${r.ko.unverified.length ? `; ${r.ko.unverified.length} not yet verified (${r.ko.unverified.map(c => esc(c.name)).join(", ")})` : ""}.</li>`).join("")}</ul>
+    <h2>Check before signing</h2>
+    ${qs.length ? `<ol>${qs.map(q => `<li>${esc(q.c.name)} (${PRIO_LABEL[q.pr]}): unproven for ${q.who.map(vi => esc(state.vendors[vi].name)).join(" and ")}.</li>`).join("")}</ol>` : "<p>Every Must and High item for the top two is backed by a demo or reference.</p>"}
+    ${flags.length ? `<h2>Contract flags</h2><ul>${flags.map(f => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}
+    <h2>Contract terms secured</h2>
+    <p>${signed.length} of ${CONTRACT.length} checklist terms marked secured${signed.length ? ": " + signed.map(c => esc(c.t)).join("; ") : ""}.</p>
+    <p class="rpt-note">Prepared with the EHR Selection Workbench. A decision aid, not legal or financial advice; have a healthcare attorney review the final agreement. Figures depend on the ratings and costs entered.</p>
+  </div>`;
+}
+const RPT_CSS = `.rpt{font-family:"Public Sans",system-ui,sans-serif;color:#13242b;line-height:1.5;max-width:900px}
+.rpt h1{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:28px;margin:4px 0}
+.rpt h2{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:18px;margin:26px 0 8px;padding-bottom:4px;border-bottom:2px solid #12707d}
+.rpt-eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#566a71;margin:0}
+.rpt-meta{color:#566a71;font-size:14px;margin:0}
+.rpt-lead{font-size:18px;font-weight:700;margin:0 0 6px}
+.rpt p{margin:0 0 8px}
+.rpt table{border-collapse:collapse;width:100%;font-size:13px}
+.rpt th,.rpt td{border-bottom:1px solid #d5dfe0;padding:6px 8px;text-align:left;vertical-align:top}
+.rpt th{background:#e9efef;font-size:12px}
+.rpt td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rpt-note{font-size:12px;color:#566a71;margin-top:6px}
+.rpt ul,.rpt ol{margin:0;padding-left:20px}`;
+function viewReport() {
+  return `<section class="view">
+    <div class="panel"><h2>Decision report</h2>
+      <p class="muted small" style="margin:0;max-width:80ch">A summary for partners or the board: recommendation, comparison, costs, open risks and contract status. Download it as a web page, open it, and use your browser's Print › Save as PDF.</p>
+      <div class="actions"><button class="btn primary" type="button" id="dlReport">Download report</button><button class="btn" type="button" id="printReport">Print</button></div></div>
+    <div class="panel" style="background:#ffffff;color:#13242b"><style>${RPT_CSS}</style>${reportBody()}</div>
+  </section>`;
+}
+function reportDocument() {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EHR decision report: ${esc(state.practice.name)}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=Public+Sans:wght@400;700&display=swap">
+<style>body{margin:0;padding:32px;background:#fff}${RPT_CSS}@media print{body{padding:0}.rpt h2{break-after:avoid}.rpt tr{break-inside:avoid}}</style></head><body>${reportBody()}</body></html>`;
+}
+
+/* ---------------- Save / load ---------------- */
+function viewData() {
+  return `<section class="view">
+    <div class="panel"><h2>Save or move your evaluation</h2>
+      <p class="muted small" style="margin:0;max-width:80ch">Your work saves automatically in this browser only. To keep a copy, share it with a colleague or move devices, copy the text below and paste it into the box on the other side.</p>
+      <textarea class="io" id="ioOut" readonly>${esc(JSON.stringify(state))}</textarea>
+      <div class="actions"><button class="btn primary" type="button" id="copyJson">Copy evaluation</button><button class="btn" type="button" id="copyCsv">Copy ratings as CSV</button></div></div>
+    <div class="panel"><h2>Load an evaluation</h2>
+      <textarea class="io" id="ioIn" placeholder="Paste a copied evaluation here"></textarea>
+      <div class="actions"><button class="btn" type="button" id="loadJson">Load it</button></div></div>
+  </section>`;
+}
+function csv() {
+  const vs = state.vendors, q = s => `"${String(s).replace(/"/g, '""')}"`;
+  const lines = [["Group", "Requirement", "Priority", ...vs.flatMap(v => [v.name + " score", v.name + " evidence"])].map(q).join(",")];
+  CRITERIA.forEach(c => lines.push([GROUPS.find(g => g.id === c.g).name, c.name, PRIO_LABEL[prioOf(state, c.id)], ...vs.flatMap((v, vi) => { const x = cell(state, vi, c.id); return [x.s ?? "", EVID[x.e].label]; })].map(q).join(",")));
+  return lines.join("\n");
+}
+async function copy(text, okMsg, fallbackEl) {
+  try { await navigator.clipboard.writeText(text); toast(okMsg); }
+  catch (e) { if (fallbackEl) { fallbackEl.focus(); fallbackEl.select(); } toast("Select the text and copy it manually"); }
+}
+
+async function downloadReport() {
+  const name = "EHR-decision-report-" + (state.practice.name || "practice").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + ".html";
+  const html = reportDocument();
+  let dl = null; try { dl = await claude.use("downloads"); } catch (e) {}
+  if (dl) { try { await dl.save({ filename: name, data: html }); toast("Report saved"); } catch (e) { if (e && e.code !== "declined") toast("Couldn't save the report"); } return; }
+  try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([html], { type: "text/html" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+  catch (e) { toast("Couldn't save the report"); }
+}
+
+/* ---------------- Events ---------------- */
+document.addEventListener("change", e => {
+  const t = e.target, d = t.dataset;
+  if (d.prio) { state.prio[d.prio] = t.value; return changed(); }
+  if (d.score) { const [vi, id] = d.score.split("|"); state.scores[vi] = state.scores[vi] || {}; const cur = cell(state, vi, id);
+    state.scores[vi][id] = { s: t.value === "" ? null : +t.value, e: t.value === "" ? "unknown" : (cur.e === "unknown" ? "claim" : cur.e) }; return changed(); }
+  if (d.ev) { const [vi, id] = d.ev.split("|"); state.scores[vi] = state.scores[vi] || {}; const cur = cell(state, vi, id); state.scores[vi][id] = { s: cur.s, e: t.value }; return changed(); }
+  if (d.cost) { const [vi, path] = d.cost.split("|"); const c = state.vendors[vi].cost; const parts = path.split(".");
+    if (parts.length === 2) c[parts[0]][parts[1]] = Math.max(0, +t.value || 0); else c[path] = Math.max(0, +t.value || 0); return changed(); }
+  if (d.practice) { state.practice[d.practice] = d.practice === "name" ? t.value : Math.max(d.practice === "providers" || d.practice === "years" ? 1 : 0, +t.value || 0); return changed(); }
+  if (d.vname) { state.vendors[d.vname].name = t.value || "Unnamed vendor"; return changed(); }
+  if (d.vnote) { state.vendors[d.vnote].note = t.value; return changed(); }
+  if (d.vchpl) { state.vendors[d.vchpl].chplId = t.value.trim(); return changed(); }
+  if (t.id === "preset") { state.practice.specialty = t.value; state.prio = t.value ? { ...PRESETS[t.value].prio } : {}; changed(); return toast(t.value ? `${PRESETS[t.value].label} priorities applied` : "Default priorities restored"); }
+  if (d.task) { const [i, k] = d.task.split("|"); state.tasks[+i][k] = k === "name" ? t.value : Math.max(0, +t.value || 0); return changed(); }
+  if (d.taskmin) { const [i, vi] = d.taskmin.split("|").map(Number); const tk = state.tasks[i]; tk.min = tk.min || []; tk.min[vi] = t.value === "" ? null : Math.max(0, +t.value); return changed(); }
+  if (t.id === "useSavings") { state.practice.useSavings = t.checked; return changed(); }
+  if (d.code) { const [i, k] = d.code.split("|"); const r = state.codes[+i]; r[k] = k === "vol" ? Math.max(0, +t.value || 0) : (k === "pos" ? t.value : t.value.trim().toUpperCase()); return changed(); }
+  if (d.shown) { const [i, vi] = d.shown.split("|").map(Number); const r = state.codes[i]; r.shown = r.shown || []; r.shown[vi] = t.value === "" ? null : +t.value; return changed(); }
+  if (t.id === "feeFile" && t.files && t.files[0]) { if (typeof XLSX === "undefined") { toast("The file reader didn't load. Reload the page and try again"); return; } return parseFeeFile(t.files[0]); }
+  if (t.id === "useFeeRev") { state.practice.useFeeRev = t.checked; return changed(); }
+  if (d.k) { state.contract = state.contract || {}; state.contract[d.k] = t.checked; save(); return; }
+  if (t.id === "fh") { filterHigh = t.checked; render(); }
+});
+document.addEventListener("input", e => {
+  if (e.target.id === "cw") { const v = +e.target.value; const lab = e.target.nextElementSibling; if (lab) lab.textContent = `${100 - v}% fit · ${v}% cost`; }
+});
+document.addEventListener("change", e => {
+  if (e.target.id === "cw") { state.practice.costWeight = +e.target.value; simCache = null; save(); const y = window.scrollY; render(); window.scrollTo(0, y); }
+});
+document.addEventListener("click", e => {
+  const t = e.target;
+  if (t.id === "btnSample") { state = sampleState(); simCache = null; save(); tab = "decision"; render(); toast("Example loaded"); }
+  if (t.id === "btnBlank" || t.id === "obStart") openWelcome();
+  if (t.id === "btnGuide") { if (state.isSample) openWelcome(); else { state.obHidden = false; save(); tab = "decision"; render(); window.scrollTo({ top: 0 }); } }
+  if (t.id === "obClose" || t.id === "obExplore") closeWelcome();
+  if (t.classList && t.classList.contains("ob-backdrop")) closeWelcome();
+  if (t.id === "obHide") { state.obHidden = true; save(); render(); toast("Checklist hidden"); }
+  if (t.id === "addV") { state.vendors.push({ name: "Vendor " + (state.vendors.length + 1), note: "", cost: JSON.parse(JSON.stringify(blankState().vendors[0].cost)) }); state.scores.push({}); changed(); }
+  if (t.dataset && t.dataset.del) { const vi = +t.dataset.del; state.vendors.splice(vi, 1); state.scores.splice(vi, 1); (state.codes || []).forEach(r => r.shown && r.shown.splice(vi, 1)); (state.tasks || []).forEach(t => t.min && t.min.splice(vi, 1)); changed(); }
+  if (t.id === "addTask") { state.tasks.push({ name: "New task", perDay: 0, minNow: 0, min: [] }); changed(); }
+  if (t.dataset && t.dataset.deltask) { state.tasks.splice(+t.dataset.deltask, 1); changed(); }
+  if (t.id === "addCode") { state.codes.push({ code: "", mod: "", pos: "nf", vol: 0, shown: [] }); changed(); }
+  if (t.dataset && t.dataset.delcode) { state.codes.splice(+t.dataset.delcode, 1); changed(); }
+  if (t.id === "copyScript") { state.scriptCopied = true; save(); } if (t.id === "copyScript") copy(scriptText().map(x => `${x.name}\n` + x.items.map((c, i) => `${i + 1}. ${c.ask}`).join("\n")).join("\n\n"), "Demo scripts copied");
+  if (t.id === "copyJson") copy(JSON.stringify(state), "Evaluation copied", $("#ioOut"));
+  if (t.id === "copyCsv") copy(csv(), "Ratings copied as CSV");
+  if (t.id === "dlReport" || t.id === "printReport") { state.reportDone = true; save(); }
+  if (t.id === "dlReport") downloadReport();
+  if (t.id === "printReport") { try { window.print(); } catch (e) { toast("Printing isn't available here. Use Download report"); } }
+  if (t.dataset && t.dataset.copychpl) copy(t.dataset.copychpl, "CHPL number copied");
+  if (t.id === "loadJson") { try { const s = JSON.parse($("#ioIn").value); if (!s.vendors || !s.practice) throw 0; state = s; simCache = null; save(); tab = "decision"; render(); toast("Evaluation loaded"); } catch (err) { toast("That text isn't a copied evaluation"); } }
+});
+render();
+if (!obSeen()) { if (state.isSample) openWelcome(); else obMark(); }   // first visit only; existing users skip it
+</script>
