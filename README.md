@@ -11,7 +11,6 @@ Live site: https://ehr-selection-workbench.vercel.app
 | `ehr-workbench.html` | The workbench: a single self-contained page (vanilla JS). Published as a claude.ai artifact. |
 | `site/index.html` | Landing page, deployed to Vercel. Sign-up form posts to Supabase. |
 | `supabase/migrations/` | Schema for the `leads` table (insert-only for the public). |
-| `EHR_Workbench_Go_To_Market.xlsx` | Positioning, target segments, pricing scenario, 30-day plan. |
 | `CLAUDE.md` | Stack, commands, conventions and version log. |
 
 ## Workbench features

@@ -2,3 +2,6 @@
 .DS_Store
 node_modules/
 .env*
+
+# internal business docs (not published)
+EHR_Workbench_Go_To_Market.xlsx
